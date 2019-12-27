@@ -1,58 +1,76 @@
 language: node_js
 node_js: "10"
-os: linux
-addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-    packages:
-      - g++-4.8
-      - build-essential
+os: osx
+osx_image: xcode10.2
 env:
   global:
     - CXX=g++-4.8
 cache:
   npm: false
-jobs:
-  include:
-    - stage: Tests
-      name: node 10
-      before_script: npm outdated || true
-      script: npm run test && npm run e2e-test
-      after_script: npm run coverage
-    - stage:
-      name: node 12
-      before_script: npm outdated || true
-      script: npm run test && npm run e2e-test
-      node_js: "12"
-    - stage:
-      name: test documentation generation
-      script: npm run generate-docs
-
-    - stage: Sample Code
-      name: JavaScript (wd)
-      # only want to run this on the main master branch
-      if: branch = master AND type != pull_request
-      env:
-        - SAUCE_LABS=1
-      install:
-        - cd sample-code/javascript-wd
-        - npm install
-      script:
-        - npm run test
-    - stage:
-      name: Python
-      # only want to run this on the main master branch
-      if: branch = master AND type != pull_request
-      language: python
-      python: "3.6"
-      env:
-        - SAUCE_LABS=1
-      before_install:
-        - pip install --upgrade pip
-      install:
-        - cd sample-code/python
-        - pip install -r requirements.txt
-        - pip install pytest-xdist
-      script:
-        - py.test -v -n 30 test
+# jobs:
+#   include:
+#     - stage: Tests
+#       name: node 10
+#       before_script: npm outdated || true
+#       script: npm run test && npm run e2e-test
+#       after_script: npm run coverage
+#     - stage:
+#       name: node 12
+#       before_script: npm outdated || true
+#       script: npm run test && npm run e2e-test
+#       node_js: "12"
+#     - stage:
+#       name: test documentation generation
+#       script: npm run generate-docs
+#
+#     - stage: Sample Code
+#       name: JavaScript (wd)
+#       # only want to run this on the main master branch
+#       if: branch = master AND type != pull_request
+#       env:
+#         - SAUCE_LABS=1
+#       install:
+#         - cd sample-code/javascript-wd
+#         - npm install
+#       script:
+#         - npm run test
+#     - stage:
+#       name: Python
+#       # only want to run this on the main master branch
+#       if: branch = master AND type != pull_request
+#       language: python
+#       python: "3.6"
+#       env:
+#         - SAUCE_LABS=1
+#       before_install:
+#         - pip install --upgrade pip
+#       install:
+#         - cd sample-code/python
+#         - pip install -r requirements.txt
+#         - pip install pytest-xdist
+#       script:
+#         - py.test -v -n 30 test
+install:
+  - npm run clean
+  - |
+      cd node_modules/appium-flutter-driver;
+      npm install -S appium-base-driver@5;
+      npm install -S appium-xcuitest-driver@3;
+      cd node_modules/appium-webdriveragent;
+      carthage bootstrap --no-use-binaries;
+      cp Cartfile.resolved Carthage;
+      mkdir -p ./Resources/WebDriverAgent.bundle;
+      cd ../../../..;
+script:
+  - |
+      pushd node_modules/appium-webdriveragent;
+      carthage bootstrap --no-use-binaries;
+      cp Cartfile.resolved Carthage;
+      mkdir -p ./Resources/WebDriverAgent.bundle;
+      popd;
+  - npm run build
+  # - npm prune --production
+  - npm run zip
+  - npm install
+  - npm run upload
+  - npx gulp sauce-storage-upload
