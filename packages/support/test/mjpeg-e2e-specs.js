@@ -5,6 +5,7 @@ import chaiAsPromised from 'chai-as-promised';
 import B from 'bluebird';
 import http from 'http';
 import mJpegServer from 'mjpeg-server';
+import getPort from 'get-port';
 
 const {MJpegStream} = mjpeg;
 
@@ -13,9 +14,7 @@ const TEST_IMG_JPG = '/9j/4QAYRXhpZgAASUkqAAgAAAAAAAAAAAAAAP/sABFEdWNreQABAAQAAA
 const should = chai.should();
 chai.use(chaiAsPromised);
 
-const MJPEG_SERVER_PORT = 8589;
-const MJPEG_SERVER_URL = `http://localhost:${MJPEG_SERVER_PORT}`;
-
+const MJPEG_HOST = '127.0.0.1';
 
 /**
  * Start an mjpeg server for the purpose of testing, which just sends the same
@@ -45,6 +44,7 @@ function initMJpegServer (port, intMs = 300, times = 20) {
 
 describe('MJpeg Stream (e2e)', function () {
   let mJpegServer, stream;
+  let serverUrl, port;
 
   before(async function () {
     // TODO: remove when buffertools can handle v12
@@ -52,7 +52,9 @@ describe('MJpeg Stream (e2e)', function () {
       return this.skip();
     }
 
-    mJpegServer = await initMJpegServer(MJPEG_SERVER_PORT);
+    port = await getPort();
+    serverUrl = `http://${MJPEG_HOST}:${port}`;
+    mJpegServer = await initMJpegServer(port);
   });
 
   after(function () {
@@ -65,7 +67,7 @@ describe('MJpeg Stream (e2e)', function () {
   });
 
   it('should update mjpeg stream based on new data from mjpeg server', async function () {
-    stream = new MJpegStream(MJPEG_SERVER_URL, _.noop);
+    stream = new MJpegStream(serverUrl, _.noop);
     should.not.exist(stream.lastChunk);
     await stream.start();
     should.exist(stream.lastChunk);
@@ -101,7 +103,7 @@ describe('MJpeg Stream (e2e)', function () {
   });
 
   it('should error out if the server does not send any images before a timeout', async function () {
-    stream = new MJpegStream(MJPEG_SERVER_URL, _.noop);
+    stream = new MJpegStream(serverUrl, _.noop);
     await stream.start(0).should.eventually.be.rejectedWith(/never sent/);
   });
 

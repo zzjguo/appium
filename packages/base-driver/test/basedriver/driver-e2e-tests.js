@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { server, routeConfiguringFunction, DeviceSettings, errors } from '../..';
+import { server, routeConfiguringFunction, DeviceSettings, errors } from '../../index';
 import {
   MJSONWP_ELEMENT_KEY, W3C_ELEMENT_KEY
 } from '../../lib/constants';
@@ -7,7 +7,7 @@ import axios from 'axios';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import B from 'bluebird';
-import getPort from 'get-port';
+import {TEST_HOST, getTestPort} from '../helpers';
 
 const should = chai.should();
 chai.use(chaiAsPromised);
@@ -19,15 +19,18 @@ function baseDriverE2ETests (DriverClass, defaultCaps = {}) {
 
   describe(`BaseDriver E2E (as ${className})`, function () {
     let baseServer, d;
+
     before(async function () {
-      port = port ?? await getPort();
+      port = port ?? await getTestPort();
       defaultCaps = {...defaultCaps, 'appium:port': port};
       d = new DriverClass({port, address});
       baseServer = await server({
         routeConfiguringFunction: routeConfiguringFunction(d),
-        port
+        port,
+        hostname: TEST_HOST
       });
     });
+
     after(async function () {
       await baseServer.close();
     });

@@ -3,7 +3,7 @@ import {insertAppiumPrefixes} from '../lib/utils';
 import findUp from 'find-up';
 import getPort from 'get-port';
 
-const TEST_HOST = 'localhost';
+const TEST_HOST = '127.0.0.1';
 
 // monorepo root.  this cannot be hardcoded because:
 // 1. we may be in 'build/test' or 'test', depending on our config

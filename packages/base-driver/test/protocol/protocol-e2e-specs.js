@@ -14,7 +14,7 @@ import {
   MJSONWP_ELEMENT_KEY, W3C_ELEMENT_KEY
 } from '../../lib/constants';
 import qs from 'querystring';
-import getPort from 'get-port';
+import {TEST_HOST, getTestPort} from '../helpers';
 
 let should = chai.should();
 chai.use(chaiAsPromised);
@@ -24,8 +24,8 @@ let baseUrl;
 describe('Protocol', function () {
 
   before(async function () {
-    port = await getPort();
-    baseUrl = `http://localhost:${port}`;
+    port = await getTestPort();
+    baseUrl = `http://${TEST_HOST}:${port}`;
   });
 
   //TODO: more tests!:
@@ -575,14 +575,14 @@ describe('Protocol', function () {
           let server, jwproxy, app;
 
           before(async function () {
-            port = await getPort();
+            port = await getTestPort(true);
           });
 
           beforeEach(function () {
             const res = createProxyServer(sessionId, port);
             server = res.server;
             app = res.app;
-            jwproxy = new JWProxy({host: 'localhost', port});
+            jwproxy = new JWProxy({host: TEST_HOST, port});
             jwproxy.sessionId = sessionId;
             driver.performActions = async (actions) => await jwproxy.command('/perform-actions', 'POST', actions);
           });

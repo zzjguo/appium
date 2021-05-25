@@ -5,7 +5,7 @@ import { configureServer, normalizeBasePath } from '../../lib/express/server';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
-import getPort from 'get-port';
+import {getTestPort} from '../helpers';
 
 const should = chai.should();
 chai.use(chaiAsPromised);
@@ -42,6 +42,12 @@ function fakeDriver () {
 }
 
 describe('server configuration', function () {
+  let port;
+
+  before(async function () {
+    port = await getTestPort(true);
+  });
+
   it('should actually use the middleware', function () {
     const app = fakeApp();
     const configureRoutes = () => {};
@@ -72,7 +78,6 @@ describe('server configuration', function () {
 
   it('should allow plugins to update the server', async function () {
     const driver = fakeDriver();
-    const port = await getPort();
     const _server = await server({
       routeConfiguringFunction: routeConfiguringFunction(driver),
       port,
@@ -90,7 +95,6 @@ describe('server configuration', function () {
     const configureRoutes = () => {
       throw new Error('I am Mr. MeeSeeks look at me!');
     };
-    const port = await getPort();
     await server({
       routeConfiguringFunction: configureRoutes,
       port,
