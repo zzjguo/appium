@@ -3,7 +3,7 @@
 import { JWProxy } from '../..';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-import {getTestPort, DEFAULT_TEST_HOST, createAppiumURL} from '../helpers';
+import {getTestPort, TEST_HOST, createAppiumURL} from '../helpers';
 import _ from 'lodash';
 
 chai.should();
@@ -24,12 +24,12 @@ describe('JWProxy', function () {
   const PROXY_STATUS_URL = createProxyURL('', 'status');
 
   function createJWProxy (opts = {}) {
-    return new JWProxy({server: DEFAULT_TEST_HOST, port, ...opts});
+    return new JWProxy({server: TEST_HOST, port, ...opts});
   }
 
   before(async function () {
     port = await getTestPort();
-    createTestURL = createAppiumURL(DEFAULT_TEST_HOST, port);
+    createTestURL = createAppiumURL(TEST_HOST, port);
     testStatusURL = createTestURL('', 'status');
     createTestSessionURL = createTestURL(_, '');
     testNewSessionURL = createTestURL('', 'session');
@@ -46,7 +46,7 @@ describe('JWProxy', function () {
       let incomingUrl = PROXY_STATUS_URL;
       let j = createJWProxy({scheme: 'HTTPS'});
       let proxyUrl = j.getUrlForProxy(incomingUrl);
-      proxyUrl.should.equal(createAppiumURL(`https://${DEFAULT_TEST_HOST}`, port, '', 'status'));
+      proxyUrl.should.equal(createAppiumURL(`https://${TEST_HOST}`, port, '', 'status'));
     });
     it('should translate the base', function () {
       let incomingUrl = PROXY_STATUS_URL;
