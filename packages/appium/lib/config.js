@@ -9,6 +9,7 @@ import {
   StoreDeprecatedDefaultCapabilityAction, DEFAULT_CAPS_ARG,
 } from './cli/argparse-actions';
 import findUp from 'find-up';
+import {getDefaultsFromSchema} from './config-file';
 
 const npmPackage = fs.readPackageJsonFrom(__dirname);
 
@@ -157,8 +158,9 @@ async function showConfig () {
 }
 
 function getNonDefaultArgs (parser, args) {
-  return parser.rawArgs.reduce((acc, [, {dest, default: defaultValue}]) => {
-    if (args[dest] && args[dest] !== defaultValue) {
+  const defaultsFromSchema = getDefaultsFromSchema({prop: 'server', assignDefaults: true});
+  return parser.rawArgs.reduce((acc, [, {dest}]) => {
+    if (args[dest] && args[dest] !== defaultsFromSchema[dest]) {
       acc[dest] = args[dest];
     }
     return acc;
@@ -213,8 +215,6 @@ function validateServerArgs (parser, args) {
   }
 
   const validations = {
-    port: checkValidPort,
-    callbackPort: checkValidPort,
     bootstrapPort: checkValidPort,
     chromedriverPort: checkValidPort,
     robotPort: checkValidPort,
@@ -245,5 +245,5 @@ export {
   getBuildInfo, validateServerArgs, checkNodeOk, showConfig,
   warnNodeDeprecations, validateTmpDir, getNonDefaultArgs,
   getGitRev, checkValidPort, APPIUM_VER, updateBuildInfo,
-  getDeprecatedArgs,
+  getDeprecatedArgs
 };

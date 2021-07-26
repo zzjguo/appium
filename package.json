@@ -30,6 +30,7 @@
     "doctor": "node ./packages/doctor",
     "e2e-test": "lerna exec gulp e2e-test",
     "generate-docs": "lerna run --scope=appium generate-docs",
+    "generate-declarations": "node ./scripts/generate-schema-declarations.js",
     "postinstall": "lerna bootstrap && lerna exec gulp prepublish",
     "install-fake-driver": "lerna run --scope=appium install-fake-driver",
     "lint": "lerna exec --parallel gulp lint && lerna run --scope=@appium/eslint-config-appium lint",
@@ -63,7 +64,8 @@
     "precommit-lint"
   ],
   "lint-staged": {
-    "*.js": "eslint --fix"
+    "*.js": "eslint --fix",
+    "packages/appium/lib/appium.schema.json": "npm run generate-declarations && git add -A ./packages/appium/lib/appium-config.d.ts"
   },
   "devDependencies": {
     "@appium/eslint-config-appium": "file:./packages/eslint-config-appium",
@@ -80,6 +82,8 @@
     "@babel/preset-env": "^7.15.0",
     "@babel/register": "^7.15.3",
     "@babel/runtime": "^7.15.3",
+    "@types/argparse": "^2.0.10",
+    "@types/json-schema": "^7.0.8",
     "appium-base-driver": "^7.9.0",
     "asyncbox": "^2.8.0",
     "babel-eslint": "^10.1.0",
@@ -95,14 +99,17 @@
     "get-port": "^5.1.1",
     "gulp": "^4.0.2",
     "handlebars": "^4.7.7",
+    "json-schema-to-typescript": "^10.1.4",
     "lerna": "^4.0.0",
     "lint-staged": "^11.1.2",
     "mjpeg-server": "^0.3.1",
     "mocha": "9.0.1",
     "pre-commit": "1.x",
     "querystring": "^0.2.1",
+    "rewiremock": "^3.14.3",
     "serve-static": "^1.14.1",
     "sinon": "11.1.1",
+    "sinon-chai": "^3.7.0",
     "sync-monorepo-packages": "^0.3.4",
     "validate.js": "^0.13.0",
     "webdriverio": "^6.12.1",

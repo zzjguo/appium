@@ -70,14 +70,6 @@ function addServerToParser (sharedArgs, subParsers, debug = false) {
   return serverArgs;
 }
 
-function getDefaultServerArgs () {
-  let defaults = {};
-  for (let [, arg] of serverArgs) {
-    defaults[arg.dest] = arg.default;
-  }
-  return defaults;
-}
-
 function addExtensionsToParser (sharedArgs, subParsers, debug = false) {
   for (const type of [DRIVER_TYPE, PLUGIN_TYPE]) {
     const extParser = subParsers.add_parser(type, {
@@ -118,4 +110,4 @@ function addExtensionsToParser (sharedArgs, subParsers, debug = false) {
 }
 
 export default getParser;
-export { getParser, getDefaultServerArgs };
+export { getParser };

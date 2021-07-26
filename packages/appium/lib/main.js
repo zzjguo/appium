@@ -6,7 +6,7 @@ import logger from './logger'; // logger needs to remain first of imports
 import _ from 'lodash';
 import { server as baseServer, routeConfiguringFunction as makeRouter } from '@appium/base-driver';
 import { asyncify } from 'asyncbox';
-import { default as getParser, getDefaultServerArgs } from './cli/parser';
+import { default as getParser } from './cli/parser';
 import { USE_ALL_PLUGINS } from './cli/args';
 import { logger as logFactory, util } from '@appium/support';
 import {
@@ -21,7 +21,8 @@ import { runExtensionCommand } from './cli/extension';
 import { AppiumDriver } from './appium';
 import registerNode from './grid-register';
 import { inspectObject } from './utils';
-
+import { readConfigFile, getDefaultsFromSchema } from './config-file';
+import path from 'path';
 
 async function preflightChecks ({parser, args, driverConfig, pluginConfig, throwInsteadOfExit = false}) {
   try {
@@ -34,7 +35,7 @@ async function preflightChecks ({parser, args, driverConfig, pluginConfig, throw
       process.exit(0);
     }
     warnNodeDeprecations();
-    validateServerArgs(parser, args);
+    await validateServerArgs(parser, args);
     await driverConfig.read();
     await pluginConfig.read();
     if (args.tmpDir) {
@@ -156,10 +157,6 @@ async function main (args = null) {
   let parser = getParser();
   let throwInsteadOfExit = false;
   if (args) {
-    // a containing package passed in their own args, let's fill them out
-    // with defaults
-    args = Object.assign({}, getDefaultServerArgs(), args);
-
     // if we have a containing package instead of running as a CLI process,
     // that package might not appreciate us calling 'process.exit' willy-
     // nilly, so give it the option to have us throw instead of exit
@@ -172,13 +169,34 @@ async function main (args = null) {
     // otherwise parse from CLI
     args = parser.parse_args();
   }
+
+  const configResult = await readConfigFile(args.config);
+  // TBD: maybe just warn?
+  if (!_.isEmpty(configResult.errors)) {
+    throw new Error(`Errors in config file ${configResult.filepath}:\n ${configResult.reason ?? configResult.errors}`);
+  }
+
+  // merge config and apply defaults.
+  // the order of precendece is:
+  // 1. command line args
+  // 2. config file
+  // 3. defaults from config file
+  args = _.defaults(args, configResult.config?.server, getDefaultsFromSchema({prop: 'server'}));
+
   await logsinkInit(args);
+
+  if (configResult.config) {
+    const configFilepath = path.relative(process.cwd(), configResult.filepath);
+    logger.info(`Loaded Appium config from ${configFilepath.yellow}`);
+  }
 
   // if the user has requested the 'driver' CLI, don't run the normal server,
   // but instead pass control to the driver CLI
   if (args.subcommand === DRIVER_TYPE || args.subcommand === PLUGIN_TYPE) {
+    // TODO: extract driver/plugin-specific config from config file here, and merge
+    // it with the args.
     await runExtensionCommand(args, args.subcommand);
-    process.exit();
+    return;
   }
 
   if (args.logFilters) {
@@ -240,7 +258,8 @@ async function main (args = null) {
   appiumDriver.server = server;
   try {
     // configure as node on grid, if necessary
-    if (args.nodeconfig !== null) {
+    // falsy values should not cause this to run
+    if (args.nodeconfig) {
       await registerNode(args.nodeconfig, args.address, args.port, args.basePath);
     }
   } catch (err) {
