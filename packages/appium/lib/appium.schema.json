@@ -146,6 +146,7 @@
             "debug:warn",
             "debug:error"
           ],
+          "type": "string",
           "title": "log-level schema",
           "description": "Log level (console[:file])",
           "default": "debug"

@@ -158,9 +158,14 @@ async function showConfig () {
 }
 
 function getNonDefaultArgs (parser, args) {
-  const defaultsFromSchema = getDefaultsFromSchema({prop: 'server', assignDefaults: true});
+  const defaultsFromSchema = {
+    ...getDefaultsFromSchema({assignDefaults: true}),
+    ...getDefaultsFromSchema({property: 'server', assignDefaults: true}),
+    ...getDefaultsFromSchema({property: 'plugin', assignDefaults: true}),
+    ...getDefaultsFromSchema({property: 'driver', assignDefaults: true}),
+  };
   return parser.rawArgs.reduce((acc, [, {dest}]) => {
-    if (args[dest] && args[dest] !== defaultsFromSchema[dest]) {
+    if (args[dest] && !_.isUndefined(defaultsFromSchema[dest]) && args[dest] !== defaultsFromSchema[dest]) {
       acc[dest] = args[dest];
     }
     return acc;

@@ -14,34 +14,10 @@ const DRIVER_EXAMPLE = 'xcuitest';
 const PLUGIN_EXAMPLE = 'find_by_image';
 const USE_ALL_PLUGINS = 'all';
 
-const serverArgs = [
-  ...toParserArgs({
-    overrides: {
-      allowInsecure: {
-        type: parseSecurityFeatures
-      },
-      basePath: {
-        default: DEFAULT_BASE_PATH
-      },
-      defaultCapabilities: {
-        type: parseJsonStringOrFile
-      },
-      denyInsecure: {
-        type: parseSecurityFeatures
-      },
-      drivers: {
-        type: parseDriverNames
-      },
-      nodeconfig: {
-        type: parseJsonStringOrFile
-      },
-      plugins: {
-        type: parsePluginNames
-      }
-    },
-    prop: 'server',
-  }),
-  // the following args are not appropriate for a config file for various reasons
+/**
+ * These don't make sense in the context of a config file for obvious reasons.
+ */
+const serverArgsDisallowedInConfig = [
   [
     ['--shell'],
     {
@@ -71,6 +47,36 @@ const serverArgs = [
       help: 'Explicit path to Appium configuration file',
     },
   ],
+];
+
+const serverArgs = [
+  ...toParserArgs({
+    overrides: {
+      allowInsecure: {
+        type: parseSecurityFeatures
+      },
+      basePath: {
+        default: DEFAULT_BASE_PATH
+      },
+      defaultCapabilities: {
+        type: parseJsonStringOrFile
+      },
+      denyInsecure: {
+        type: parseSecurityFeatures
+      },
+      drivers: {
+        type: parseDriverNames
+      },
+      nodeconfig: {
+        type: parseJsonStringOrFile
+      },
+      plugins: {
+        type: parsePluginNames
+      }
+    },
+    property: 'server',
+  }),
+  ...serverArgsDisallowedInConfig
 ];
 
 const sharedArgs = toParserArgs({

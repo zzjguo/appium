@@ -6,16 +6,80 @@ import {lilconfig} from 'lilconfig';
 import yaml from 'yaml';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import {fs} from '@appium/support';
 import betterAjvErrors from '@sidvind/better-ajv-errors';
 import schema from './appium.schema.json';
+
+/**
+ * Any argument alias shorter than this number will be considered a "short" argument beginning with a single dash
+ * @type {Readonly<number>}
+ */
+const SHORT_ARG_CUTOFF = 3;
+
+/**
+ * Top-level config groups. Anything else at the top-level is considered a "global" config value and will
+ * affect any use of `appium driver`, `appium server` or `appium plugin`
+ * @type {Readonly<Set<string>>}
+ */
+const CONFIG_GROUPS = new Set(['server', 'plugin', 'driver']);
 
 /**
  * lilconfig loader to handle `.yaml` files
  * @type {import('lilconfig').LoaderSync}
  */
-function yamlLoader (_, content) {
+function yamlLoader (filepath, content) {
+  log.debug(`Attempting to parse ${filepath} as YAML`);
   return yaml.parse(content);
+}
+
+/**
+ * A cache of the raw config file at a filepath
+ * @type {Map<string,string>}
+ */
+const rawConfig = new Map();
+
+/**
+ * Custom JSON loader that caches the raw config file (for use with `better-ajv-errors`).
+ * If it weren't for this cache, this would be unnecessary.
+ * @type {import('lilconfig').LoaderSync}
+ */
+function jsonLoader (filepath, content) {
+  log.debug(`Attempting to parse ${filepath} as JSON`);
+  rawConfig.set(filepath, content);
+  return JSON.parse(content);
+}
+
+/**
+ * Loads a config file from an explicit path
+ * @param {LilconfigAsyncSearcher} lc - lilconfig instance
+ * @param {string} filepath - Path to config file
+ */
+async function loadConfigFile (lc, filepath) {
+  log.debug(`Attempting to load config at filepath ${filepath}`);
+  try {
+    // removing "await" will cause any rejection to _not_ be caught in this block!
+    return await lc.load(filepath);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      err.message = `Config file not found at user-provided path: ${filepath}`;
+    } else if (err instanceof SyntaxError) {
+      // generally invalid JSON
+      err.message = `Config file at user-provided path ${filepath} is invalid:\n${err.message}`;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Searches for a config file
+ * @param {LilconfigAsyncSearcher} lc - lilconfig instance
+ */
+async function searchConfigFile (lc) {
+  log.debug('No config file specified; searching...');
+  const result = await lc.search();
+  if (!result?.filepath) {
+    log.debug('Could not find a config file');
+  }
+  return result;
 }
 
 /**
@@ -28,28 +92,11 @@ async function findConfigFile (filepath) {
     loaders: {
       '.yaml': yamlLoader,
       '.yml': yamlLoader,
+      '.json': jsonLoader,
+      noExt: jsonLoader,
     },
   });
-  if (filepath) {
-    log.debug(`Attempting to load config at filepath ${filepath}`);
-    try {
-      // removing "await" will cause any rejection to _not_ be caught in this block!
-      return await lc.load(filepath);
-    } catch (err) {
-      if (err.code === 'ENOENT') {
-        err.message = `Config file not found at user-provided path: ${filepath}`;
-      } else if (err instanceof SyntaxError) {
-        err.message = `Config file at user-provided path ${filepath} is invalid:\n${err.message}`;
-      }
-      throw err;
-    }
-  }
-  log.debug('No config file specified; searching...');
-  const result = await lc.search();
-  if (!result || !result.filepath) {
-    log.debug('Could not find a config file');
-  }
-  return result;
+  return await (filepath ? loadConfigFile(lc, filepath) : searchConfigFile(lc));
 }
 
 /**
@@ -61,14 +108,14 @@ const validator = _.once(
   /**
    * @returns {import('ajv').ValidateFunction<import('./appium-config').AppiumConfigurationSchema>}
    */
-  () => {
+  function validator () {
     const ajv = addFormats(
       new Ajv({
         // without this not much validation actually happens
         allErrors: true,
         // enables use to use `"type": ["foo", "bar"]` in schema
         allowUnionTypes: true,
-        // enables us to use custom properties (e.g., `appiumDest`)
+        // enables us to use custom properties (e.g., `appiumDest`); see `AppiumSchemaMetadata`
         strict: false,
       }),
     );
@@ -84,7 +131,7 @@ const validator = _.once(
  */
 function validateConfigFile (config = {}) {
   const validate = validator();
-  // validate.errors will be non-empty if `validate()` returns `false`.
+  // `validate.errors` will be non-empty if `validate()` returns `false`.
   // ...yes, that is a weird API.
   return validate(config) ? [] : [...validate.errors];
 }
@@ -97,37 +144,43 @@ function validateConfigFile (config = {}) {
  */
 export async function readConfigFile (filepath, opts = {}) {
   const result = (await findConfigFile(filepath)) ?? {};
+
   if (result.config && !result.isEmpty) {
     log.debug(`Config file found at ${result.filepath}`);
     const {normalizeKeys = true, pretty = true} = opts;
-    /** @type {ReadConfigFileResult} */
-    let retval;
-    const errors = validateConfigFile(result.config);
-    if (errors.length) {
-      /** @type {string} */
-      let json;
-      try {
-        json = await fs.readFile(result.filepath, 'utf8');
-      } catch {}
-      const reason = betterAjvErrors(schema, result.config, errors, {
-        json,
-        format: pretty ? 'cli' : 'js',
-      });
-      retval = reason ? {...result, errors, reason} : {...result, errors};
-    } else {
-      retval = {...result, errors};
+    try {
+      /** @type {ReadConfigFileResult} */
+      let retval;
+      const errors = validateConfigFile(result.config);
+
+      if (!_.isEmpty(errors)) {
+        const reason = betterAjvErrors(schema, result.config, errors, {
+          // cached from the JSON loader; will be `undefined` if not JSON
+          json: rawConfig.get(result.filepath),
+          format: pretty ? 'cli' : 'js',
+        });
+        retval = reason ? {...result, errors, reason} : {...result, errors};
+      } else {
+        retval = {...result, errors};
+      }
+
+      if (normalizeKeys) {
+        // normalize (to camel case) all top-level property names of the config file
+        retval.config = objectKeysToCamelCase(retval.config);
+        // note that we only have two "levels" of configuration: global and server-specific, plugin-specific and driver-specific.
+        // therefore we do not need to recursively normalize the properties.
+        CONFIG_GROUPS.forEach((key) => {
+          if (retval.config[key]) {
+            retval.config[key] = objectKeysToCamelCase(retval.config[key]);
+          }
+        });
+      }
+      log.debug('Final config result: ', retval);
+      return retval;
+    } finally {
+      // clean up the raw config file cache
+      rawConfig.delete(result.filepath);
     }
-    if (normalizeKeys) {
-      // XXX blah
-      retval.config = objectKeysToCamelCase(retval.config);
-      ['sever', 'plugin', 'driver'].forEach((key) => {
-        if (retval.config[key]) {
-          retval.config[key] = objectKeysToCamelCase(retval.config[key]);
-        }
-      });
-    }
-    log.debug('Final config result: ', retval);
-    return retval;
   }
   return result;
 }
@@ -148,28 +201,31 @@ function objectKeysToCamelCase (obj = {}) {
  * @throws {TypeError} If `alias` is falsy
  */
 function aliasToFlag (alias) {
-  if (!alias) {
-    throw new TypeError('falsy alias value');
-  }
-  return alias.length < 3 ? `-${alias}` : `--${alias}`;
+  return alias.length < SHORT_ARG_CUTOFF ? `-${alias}` : `--${alias}`;
 }
 
 /**
- * Given a property name, subschema, and any dynamic options, return
- * a tuple describing an arg names and `ArgumentOptions` object.
+ * Convert a schema property to a data structure suitable for handing to `argparse`.
  * @param {string} name - Property name
- * @param {object} subSchema - JSON Schema subschema
- * @param {{overrides?: object, assignDefaults?: boolean}} [opts] - Extra stuff that can't be expressed in a static schema
- * @returns {[string[], import('argparse').ArgumentOptions]}
+ * @param {AppiumSchema} subSchema - JSON Schema subschema
+ * @param {SubSchemaToArgDefOptions} [opts] - Options
+ * @returns {[string[], import('argparse').ArgumentOptions]} A tuple of argument aliases (in "flag" format) and an `ArgumentOptions` object
  */
 function subSchemaToArgDef (name, subSchema, opts = {}) {
   const {overrides = {}, assignDefaults = false} = opts;
 
-  const names = [aliasToFlag(name)];
-  names.push(...(subSchema.appiumAliases ?? []).map(aliasToFlag));
+  /**
+   * This is a list of all aliases for this argument in "flag" format (e.g., one of `--flag` or `-f`).
+   * Aliases are defined by the `appiumAliases` property of the schema
+   */
+  const aliases = [
+    aliasToFlag(name),
+    ...(subSchema.appiumAliases ?? []).map(aliasToFlag),
+  ];
+
   /** @type {import('argparse').ArgumentOptions} */
   let argOpts = {
-    required: subSchema.required ?? false,
+    required: false, // we have _no_ required arguments
     dest: subSchema.appiumDest ?? _.camelCase(name),
     help: subSchema.description,
   };
@@ -200,12 +256,15 @@ function subSchemaToArgDef (name, subSchema, opts = {}) {
       }
       break;
   }
+
+  // in a JSON schema, an `enum` can contain many types, but `argparse` can only
+  // accept an array of strings...sooo...
   if (Array.isArray(subSchema.enum) && !_.isEmpty(subSchema.enum)) {
-    argOpts.choices = subSchema.enum;
+    argOpts.choices = subSchema.enum.map(String);
   }
-  // let whatever's in `dynamicOptions` override the schema
+  // let whatever's in `overrides` override the schema
   argOpts = _.merge(argOpts, overrides[name] ?? overrides[argOpts.dest]);
-  return [names, argOpts];
+  return [aliases, argOpts];
 }
 
 /**
@@ -213,14 +272,15 @@ function subSchemaToArgDef (name, subSchema, opts = {}) {
  * @param {GetDefaultsFromSchemaOptions|ToParserArgsOptions} [opts] Options
  */
 function getIncludedSchemaProperties (opts = {}) {
-  const {exclude = [], prop} = opts;
+  const {exclude = [], property} = opts;
 
-  const properties = /** @type {import('json-schema').JSONSchema7} */ (
-    prop ? schema.properties[prop].properties : schema.properties
+  // this coercion enables our custom metadata props, e.g., `appiumDest`
+  const properties = /** @type {{[key: string]: AppiumSchema}} */ (
+    property ? schema.properties[property].properties : schema.properties
   );
 
   // toss any properties present in `exclude`
-  return _.omitBy(properties, (value, key) => exclude.includes(key));
+  return _.omit(properties, exclude);
 }
 
 /**
@@ -258,7 +318,8 @@ export const getDefaultsFromSchema = _.memoize(
    * Key resolver function generates unique cache key for each set of parameters
    * @param {GetDefaultsFromSchemaOptions} [opts] - Options
    * */
-  (opts) => (opts ? `${opts.exclude ?? 'all'}-${opts.prop ?? 'all'}` : 'all'),
+  (opts) =>
+    opts ? `${opts.exclude ?? 'all'}-${opts.property ?? 'all'}` : 'all',
 );
 
 /**
@@ -274,20 +335,48 @@ export const getDefaultsFromSchema = _.memoize(
 /**
  * Options for {@link readConfigFile}.
  * @typedef {Object} ReadConfigFileOptions
- * @property {boolean} [pretty=true] If `false`, do not use color and fancy formatting in the `reason` property of the {@link ReadConfigFileResult}.
+ * @property {boolean} [pretty=true] If `false`, do not use color and fancy formatting in the `reason` property of the {@link ReadConfigFileResult}. The value of `reason` is then suitable for machine-reading.
  * @property {boolean} [normalizeKeys=true] If `false`, do not normalize key names to camel case.
  */
 
 /**
+ * Options for {@link getDefaultsFromSchema}.
  * @typedef {Object} GetDefaultsFromSchemaOptions
- * @property {string} [prop] - Top-level property to get defaults for
+ * @property {string} [property] - Top-level property to get defaults for
  * @property {string[]} [exclude] - Properties to exclude from the defaults
  */
 
 /**
+ * Options for {@link toParserArgs}.
  * @typedef {Object} ToParserArgsOptions
- * @property {string} [prop] - Top-level property to convert. If not provided, the root ("shared") properties will be converted; will not walk down any object properties (e.g., `server`).
+ * @property {string} [property] - Top-level property to convert. If not provided, the root ("shared") properties will be converted; will not walk down any object properties (e.g., `server`).
  * @property {object} [overrides] - Extra stuff that can't be expressed in a static schema including validation/parsing functions
  * @property {string[]} [exclude] - Exclude certain properties from processing; some things only make sense in the context of a config file
  * @property {boolean} [assignDefaults] - If `true`, default values will be assigned to the config object. Generally this should be `false`, because we do not want defaults to override configuration files.
+ */
+
+/**
+ * Custom metadata optionally present in a schema property
+ * @typedef {Object} AppiumSchemaMetadata
+ * @property {string[]} [appiumAliases] - Command-line aliases for a property in the schema
+ * @property {string} [appiumDest] - Internal name for a property in the schema
+ */
+
+/**
+ * Appium's config schema plus its custom metadata.
+ * @typedef {import('json-schema').JSONSchema7 & AppiumSchemaMetadata} AppiumSchema
+ */
+
+/**
+ * This is an `AsyncSearcher` which is inexplicably _not_ exported by the `lilconfig` type definition.
+ * @private
+ * @typedef {ReturnType<import('lilconfig')["lilconfig"]>} LilconfigAsyncSearcher
+ */
+
+/**
+ * Options for {@link subSchemaToArgDef}.
+ * @private
+ * @typedef {Object} SubSchemaToArgDefOptions
+ * @property {boolean} [assignDefaults] - If `true`, assign the defaults found in the schema to the returned object.
+ * @property {{[key: string]: import('argparse').ArgumentOptions}} [overrides] - Extra stuff that can't be expressed in a static schema
  */

@@ -110,12 +110,14 @@ describe('config-file', function () {
      */
     let result;
 
-    it('should configure YAML file loaders', async function () {
+    it('should configure file loaders', async function () {
       await readConfigFile();
       mocks.lilconfig.lilconfig.should.have.been.calledWith('appium', {
         loaders: {
           '.yaml': sinon.match.func,
           '.yml': sinon.match.func,
+          '.json': sinon.match.func,
+          noExt: sinon.match.func,
         },
       });
     });
@@ -175,7 +177,7 @@ describe('config-file', function () {
               result.should.deep.equal({
                 errors: [],
                 config: {foo: 'bar'},
-                filepath: ''
+                filepath: '',
               });
             });
           });
@@ -197,7 +199,7 @@ describe('config-file', function () {
               result.should.deep.equal({
                 errors: [{reason: 'bad'}, {reason: 'superbad'}],
                 config: {foo: 'bar'},
-                filepath: ''
+                filepath: '',
               });
             });
           });
@@ -295,7 +297,7 @@ describe('config-file', function () {
               result.should.deep.equal({
                 errors: [],
                 config: {foo: 'bar'},
-                filepath: ''
+                filepath: '',
               });
             });
           });
@@ -310,7 +312,10 @@ describe('config-file', function () {
             });
 
             it('should resolve with an object having a nonempty array of errors', function () {
-              result.should.deep.property('errors', [{reason: 'bad'}, {reason: 'superbad'}]);
+              result.should.deep.property('errors', [
+                {reason: 'bad'},
+                {reason: 'superbad'},
+              ]);
             });
           });
         });
@@ -330,9 +335,9 @@ describe('config-file', function () {
       });
     });
 
-    describe('when provided option "prop"', function () {
+    describe('when provided option "property"', function () {
       it('should return values for all child props', function () {
-        getDefaultsFromSchema({prop: 'server'}).should.deep.equal({
+        getDefaultsFromSchema({property: 'server'}).should.deep.equal({
           address: '0.0.0.0',
           allowCors: false,
           allowInsecure: [],
@@ -358,7 +363,10 @@ describe('config-file', function () {
 
       describe('when provided option "exclude"', function () {
         it('should exclude matching props from the result', function () {
-          getDefaultsFromSchema({exclude: 'allow-cors', prop: 'server'}).should.deep.equal({
+          getDefaultsFromSchema({
+            exclude: 'allow-cors',
+            property: 'server',
+          }).should.deep.equal({
             address: '0.0.0.0',
             allowInsecure: [],
             basePath: '/',
