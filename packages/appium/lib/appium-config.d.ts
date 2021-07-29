@@ -8,59 +8,59 @@
 /**
  * path to the directory where Appium will keep installed drivers, plugins, and any other metadata necessary for its operation. Defaults to APPIUM_HOME env var; failing that, a system-specific location in the current user's home directory.
  */
-export type AppiumHomeSchema = string;
+export type AppiumHomeConfig = string;
 /**
  * One or more log filtering rules
  */
-export type LogFiltersSchema = string[];
+export type LogFiltersConfig = string[];
 /**
  * A list of drivers to activate. By default, all installed drivers will be activated.  If a string, must be valid JSON
  */
-export type DriversSchema = string | string[];
+export type DriversConfig = string | string[];
 /**
  * A list of plugins to activate. To activate all plugins, use the single string "all". If a string, can otherwise be valid JSON.
  */
-export type PluginsSchema = string | string[];
+export type PluginsConfig = string | string[];
 /**
  * Whether the Appium server should allow web browser connections from any host
  */
-export type AllowCorsSchema = boolean;
+export type AllowCorsConfig = boolean;
 /**
  * IP address to listen on
  */
-export type AddressSchema = string;
+export type AddressConfig = string;
 /**
  * Port to listen on
  */
-export type PortSchema = number;
+export type PortConfig = number;
 /**
  * Base path to use as the prefix for all webdriver routes running on the server
  */
-export type BasePathSchema = string;
+export type BasePathConfig = string;
 /**
  * Number of seconds the Appium server should apply as both the keep-alive timeout and the connection timeout for all requests. A value of 0 disables the timeout.
  */
-export type KeepAliveTimeoutSchema = number;
+export type KeepAliveTimeoutConfig = number;
 /**
  * Callback IP address (default: same as "address")
  */
-export type CallbackAddressSchema = string;
+export type CallbackAddressConfig = string;
 /**
  * Callback port (default: same as "port")
  */
-export type CallbackPortSchema = number;
+export type CallbackPortConfig = number;
 /**
  * Enables session override (clobbering)
  */
-export type SessionOverrideSchema = boolean;
+export type SessionOverrideConfig = boolean;
 /**
  * Also send log output to this file
  */
-export type LogSchema = string;
+export type LogConfig = string;
 /**
  * Log level (console[:file])
  */
-export type LogLevelSchema =
+export type LogLevelConfig =
   | "info"
   | "info:debug"
   | "info:info"
@@ -84,23 +84,23 @@ export type LogLevelSchema =
 /**
  * Show timestamps in console output
  */
-export type LogTimestampSchema = boolean;
+export type LogTimestampConfig = boolean;
 /**
  * Use local timezone for timestamps
  */
-export type LocalTimezoneSchema = boolean;
+export type LocalTimezoneConfig = boolean;
 /**
  * Do not use color in console output
  */
-export type LogNoColorsSchema = boolean;
+export type LogNoColorsConfig = boolean;
 /**
  * Also send log output to this http listener
  */
-export type WebhookSchema = string;
+export type WebhookConfig = string;
 /**
- * Path to configuration JSON file to register Appium with Selenium Grid; otherwise the configuration itself
+ * Path to configuration JSON file to register Appium as a node with Selenium Grid 3; otherwise the configuration itself
  */
-export type NodeconfigSchema =
+export type NodeconfigConfig =
   | {
       [k: string]: unknown;
     }
@@ -108,97 +108,99 @@ export type NodeconfigSchema =
 /**
  * Do not check that needed files are readable and/or writable
  */
-export type NoPermsCheckSchema = boolean;
+export type NoPermsCheckConfig = boolean;
 /**
  * Cause sessions to fail if desired caps are sent in that Appium does not recognize as valid for the selected device
  */
-export type StrictCapsSchema = boolean;
+export type StrictCapsConfig = boolean;
 /**
  * Absolute path to directory Appium can use to manage temp files. Defaults to C:\Windows\Temp on Windows and /tmp otherwise.
  */
-export type TmpSchema = string;
+export type TmpConfig = string;
 /**
  * Absolute path to directory Appium can use to save iOS instrument traces; defaults to <tmp>/appium-instruments
  */
-export type TraceDirSchema = string;
+export type TraceDirConfig = string;
 /**
  * Add exaggerated spacing in logs to help with visual inspection
  */
-export type DebugLogSpacingSchema = boolean;
+export type DebugLogSpacingConfig = boolean;
 /**
  * Add long stack traces to log entries. Recommended for debugging only.
  */
-export type LongStacktraceSchema = boolean;
+export type LongStacktraceConfig = boolean;
+/**
+ * Set the default desired capabilities, which will be set on each session unless overridden by received capabilities. If a string, a path to a JSON file containing the capabilities, or raw JSON.
+ */
+export type DefaultCapabilitiesConfig =
+  | {
+      [k: string]: unknown;
+    }
+  | string;
 /**
  * Disable additional security checks, so it is possible to use some advanced features, provided by drivers supporting this option. Only enable it if all the clients are in the trusted network and it's not the case if a client could potentially break out of the session sandbox. Specific features can be overridden by using "deny-insecure"
  */
-export type RelaxedSecuritySchema = boolean;
+export type RelaxedSecurityConfig = boolean;
 /**
- * Set which insecure features are allowed to run in this server's sessions. Features are defined on a driver level; see documentation for more details. Note that features defined via "deny-insecure" will be disabled, even if also listed here. If string, a path to a text file containing policy.
+ * Set which insecure features are allowed to run in this server's sessions. Features are defined on a driver level; see documentation for more details. Note that features defined via "deny-insecure" will be disabled, even if also listed here. If string, a path to a text file containing policy or a comma-delimited list.
  */
-export type AllowInsecureSchema = string[] | string;
+export type AllowInsecureConfig = string[] | string;
 /**
- * Set which insecure features are not allowed to run in this server's sessions. Features are defined on a driver level; see documentation for more details. Features listed here will not be enabled even if also listed in "allow-insecure", and even if "relaxed-security" is enabled. If string, a path to a text file containing policy.
+ * Set which insecure features are not allowed to run in this server's sessions. Features are defined on a driver level; see documentation for more details. Features listed here will not be enabled even if also listed in "allow-insecure", and even if "relaxed-security" is enabled. If string, a path to a text file containing policy or a comma-delimited list.
  */
-export type DenyInsecureSchema = string[] | string;
+export type DenyInsecureConfig = string[] | string;
 
 /**
  * A schema for Appium configuration files
  */
-export interface AppiumConfigurationSchema {
-  "appium-home"?: AppiumHomeSchema;
-  "log-filters"?: LogFiltersSchema;
-  server?: AppiumServerConfiguration;
-  driver?: DriverSchema;
-  plugin?: PluginSchema;
+export interface AppiumConfiguration {
+  "appium-home"?: AppiumHomeConfig;
+  "log-filters"?: LogFiltersConfig;
+  server?: ServerConfig;
+  driver?: DriverConfig;
+  plugin?: PluginConfig;
 }
 /**
  * Configuration when running Appium as a server
  */
-export interface AppiumServerConfiguration {
-  drivers?: DriversSchema;
-  plugins?: PluginsSchema;
-  "allow-cors"?: AllowCorsSchema;
-  address?: AddressSchema;
-  port?: PortSchema;
-  "base-path"?: BasePathSchema;
-  "keep-alive-timeout"?: KeepAliveTimeoutSchema;
-  "callback-address"?: CallbackAddressSchema;
-  "callback-port"?: CallbackPortSchema;
-  "session-override"?: SessionOverrideSchema;
-  log?: LogSchema;
-  "log-level"?: LogLevelSchema;
-  "log-timestamp"?: LogTimestampSchema;
-  "local-timezone"?: LocalTimezoneSchema;
-  "log-no-colors"?: LogNoColorsSchema;
-  webhook?: WebhookSchema;
-  nodeconfig?: NodeconfigSchema;
-  "no-perms-check"?: NoPermsCheckSchema;
-  "strict-caps"?: StrictCapsSchema;
-  tmp?: TmpSchema;
-  "trace-dir"?: TraceDirSchema;
-  "debug-log-spacing"?: DebugLogSpacingSchema;
-  "long-stacktrace"?: LongStacktraceSchema;
-  "default-capabilities"?: DefaultCapabilitiesSchema;
-  "relaxed-security"?: RelaxedSecuritySchema;
-  "allow-insecure"?: AllowInsecureSchema;
-  "deny-insecure"?: DenyInsecureSchema;
-}
-/**
- * Set the default desired capabilities, which will be set on each session unless overridden by received capabilities.
- */
-export interface DefaultCapabilitiesSchema {
-  [k: string]: unknown;
+export interface ServerConfig {
+  drivers?: DriversConfig;
+  plugins?: PluginsConfig;
+  "allow-cors"?: AllowCorsConfig;
+  address?: AddressConfig;
+  port?: PortConfig;
+  "base-path"?: BasePathConfig;
+  "keep-alive-timeout"?: KeepAliveTimeoutConfig;
+  "callback-address"?: CallbackAddressConfig;
+  "callback-port"?: CallbackPortConfig;
+  "session-override"?: SessionOverrideConfig;
+  log?: LogConfig;
+  "log-level"?: LogLevelConfig;
+  "log-timestamp"?: LogTimestampConfig;
+  "local-timezone"?: LocalTimezoneConfig;
+  "log-no-colors"?: LogNoColorsConfig;
+  webhook?: WebhookConfig;
+  nodeconfig?: NodeconfigConfig;
+  "no-perms-check"?: NoPermsCheckConfig;
+  "strict-caps"?: StrictCapsConfig;
+  tmp?: TmpConfig;
+  "trace-dir"?: TraceDirConfig;
+  "debug-log-spacing"?: DebugLogSpacingConfig;
+  "long-stacktrace"?: LongStacktraceConfig;
+  "default-capabilities"?: DefaultCapabilitiesConfig;
+  "relaxed-security"?: RelaxedSecurityConfig;
+  "allow-insecure"?: AllowInsecureConfig;
+  "deny-insecure"?: DenyInsecureConfig;
 }
 /**
  * Driver-specific configuration. Keys should correspond to driver package names
  */
-export interface DriverSchema {
+export interface DriverConfig {
   [k: string]: unknown;
 }
 /**
  * Plugin-specific configuration. Keys should correspond to plugin package names
  */
-export interface PluginSchema {
+export interface PluginConfig {
   [k: string]: unknown;
 }
