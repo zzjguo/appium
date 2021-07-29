@@ -35,7 +35,7 @@ async function preflightChecks ({parser, args, driverConfig, pluginConfig, throw
       process.exit(0);
     }
     warnNodeDeprecations();
-    await validateServerArgs(parser, args);
+    validateServerArgs(parser, args);
     await driverConfig.read();
     await pluginConfig.read();
     if (args.tmpDir) {
@@ -170,8 +170,8 @@ async function main (args = null) {
     args = parser.parse_args();
   }
 
-  const configResult = await readConfigFile(args.config);
-  // TBD: maybe just warn?
+  const configResult = await readConfigFile(args.configFile);
+
   if (!_.isEmpty(configResult.errors)) {
     throw new Error(`Errors in config file ${configResult.filepath}:\n ${configResult.reason ?? configResult.errors}`);
   }
@@ -181,8 +181,16 @@ async function main (args = null) {
   // 1. command line args
   // 2. config file
   // 3. defaults from config file
-  args = _.defaults(args, configResult.config?.server, getDefaultsFromSchema({prop: 'server'}));
-
+  args = _.defaultsDeep(
+    args,
+    configResult.config?.server,
+    configResult.config?.driver,
+    configResult.config?.plugin,
+    getDefaultsFromSchema({property: 'server'}),
+    getDefaultsFromSchema({property: 'driver'}),
+    getDefaultsFromSchema({property: 'plugin'}),
+  );
+  // console.dir(args);
   await logsinkInit(args);
 
   if (configResult.config) {

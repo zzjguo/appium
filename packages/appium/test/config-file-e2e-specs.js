@@ -1,32 +1,125 @@
+import path from 'path';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import {logger} from '@appium/support';
+import {readConfigFile} from '../lib/config-file';
+
 chai.use(chaiAsPromised);
 chai.should();
 
-import {readConfigFile} from '../lib/config-file';
-
 describe('config file behavior', function () {
-  const GOOD_FILEPATH = require.resolve('./fixtures/appium.config.good.json');
-  const BAD_FILEPATH = require.resolve('./fixtures/appium.config.bad.json');
-  const INVALID_JSON_FILEPATH = require.resolve(
-    './fixtures/appium.config.invalid.json',
+
+  const FIXTURE_PATH = path.join(__dirname, './fixtures/config');
+
+  const GOOD_FILEPATH = path.join(FIXTURE_PATH, 'appium.config.good.json');
+  const NODECONFIG_FILEPATH = path.join(
+    FIXTURE_PATH,
+    'appium.config.nodeconfig-path.json',
   );
+  const BAD_FILEPATH = path.join(FIXTURE_PATH, 'appium.config.bad.json');
+  const INVALID_JSON_FILEPATH = path.join(
+    FIXTURE_PATH,
+    'appium.config.invalid.json',
+  );
+  const SECURITY_ARRAY_FILEPATH = path.join(
+    FIXTURE_PATH,
+    'appium.config.security-array.json',
+  );
+  const SECURITY_DELIMITED_FILEPATH = path.join(
+    FIXTURE_PATH,
+    'appium.config.security-delimited.json',
+  );
+  const SECURITY_PATH_FILEPATH = path.join(
+    FIXTURE_PATH,
+    'appium.config.security-path.json',
+  );
+
+  let oldLogLevel;
+  before(function () {
+    // canonical way to do this?
+    oldLogLevel = logger.getLogger('Appium').level;
+    logger.getLogger('Appium').level = 'error';
+  });
+
+  after(function () {
+    logger.getLogger('Appium').level = oldLogLevel;
+  });
 
   describe('when provided a path to a config file', function () {
     describe('when the config file is valid per the schema', function () {
       it('should return a valid config object', async function () {
-        const result = await readConfigFile(GOOD_FILEPATH);
+        const result = await readConfigFile(GOOD_FILEPATH, {
+          normalize: false,
+        });
         result.should.deep.equal({
           config: require(GOOD_FILEPATH),
           filepath: GOOD_FILEPATH,
           errors: [],
         });
       });
+
+      describe('server.nodeconfig behavior', function () {
+        describe('when a string', function () {
+          it('should return a valid config object', async function () {
+            const result = await readConfigFile(NODECONFIG_FILEPATH, {
+              normalize: false,
+            });
+            result.should.deep.equal({
+              config: require(NODECONFIG_FILEPATH),
+              filepath: NODECONFIG_FILEPATH,
+              errors: [],
+            });
+          });
+        });
+      });
+
+      describe('server.allow-insecure behavior', function () {
+        describe('when a string path', function () {
+          it('should return a valid config object', async function () {
+            const result = await readConfigFile(SECURITY_PATH_FILEPATH, {
+              normalize: false,
+            });
+            result.should.deep.equal({
+              config: require(SECURITY_PATH_FILEPATH),
+              filepath: SECURITY_PATH_FILEPATH,
+              errors: [],
+            });
+          });
+        });
+
+        describe('when a comma-delimited string', function () {
+          it('should return a valid config object', async function () {
+            const result = await readConfigFile(SECURITY_DELIMITED_FILEPATH, {
+              normalize: false,
+            });
+            result.should.deep.equal({
+              config: require(SECURITY_DELIMITED_FILEPATH),
+              filepath: SECURITY_DELIMITED_FILEPATH,
+              errors: [],
+            });
+          });
+        });
+
+        describe('when an array', function () {
+          it('should return a valid config object', async function () {
+            const result = await readConfigFile(SECURITY_ARRAY_FILEPATH, {
+              normalize: false,
+            });
+            result.should.deep.equal({
+              config: require(SECURITY_ARRAY_FILEPATH),
+              filepath: SECURITY_ARRAY_FILEPATH,
+              errors: [],
+            });
+          });
+        });
+      });
     });
 
     describe('when the config file is invalid per the schema', function () {
       it('should return an object containing errors', async function () {
-        const result = await readConfigFile(BAD_FILEPATH);
+        const result = await readConfigFile(BAD_FILEPATH, {
+          normalize: false,
+        });
         result.should.have.deep.property('config', require(BAD_FILEPATH));
         result.should.have.property('filepath', BAD_FILEPATH);
         result.should.have.deep.property('errors', [
@@ -92,8 +185,8 @@ describe('config file behavior', function () {
             instancePath: '/server/allow-insecure',
             schemaPath: '#/properties/server/properties/allow-insecure/type',
             keyword: 'type',
-            params: {type: 'array'},
-            message: 'must be array',
+            params: {type: ['array', 'string']},
+            message: 'must be array,string',
           },
         ]);
 

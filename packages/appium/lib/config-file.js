@@ -1,5 +1,6 @@
 // @ts-check
 
+import {format} from 'util';
 import log from './logger';
 import _ from 'lodash';
 import {lilconfig} from 'lilconfig';
@@ -14,13 +15,6 @@ import schema from './appium.schema.json';
  * @type {Readonly<number>}
  */
 const SHORT_ARG_CUTOFF = 3;
-
-/**
- * Top-level config groups. Anything else at the top-level is considered a "global" config value and will
- * affect any use of `appium driver`, `appium server` or `appium plugin`
- * @type {Readonly<Set<string>>}
- */
-const CONFIG_GROUPS = new Set(['server', 'plugin', 'driver']);
 
 /**
  * lilconfig loader to handle `.yaml` files
@@ -106,7 +100,7 @@ async function findConfigFile (filepath) {
  */
 const validator = _.once(
   /**
-   * @returns {import('ajv').ValidateFunction<import('./appium-config').AppiumConfigurationSchema>}
+   * @returns {import('ajv').ValidateFunction<AppiumConfiguration>}
    */
   function validator () {
     const ajv = addFormats(
@@ -147,7 +141,7 @@ export async function readConfigFile (filepath, opts = {}) {
 
   if (result.config && !result.isEmpty) {
     log.debug(`Config file found at ${result.filepath}`);
-    const {normalizeKeys = true, pretty = true} = opts;
+    const {normalize = true, pretty = true} = opts;
     try {
       /** @type {ReadConfigFileResult} */
       let retval;
@@ -164,18 +158,11 @@ export async function readConfigFile (filepath, opts = {}) {
         retval = {...result, errors};
       }
 
-      if (normalizeKeys) {
+      if (normalize) {
         // normalize (to camel case) all top-level property names of the config file
-        retval.config = objectKeysToCamelCase(retval.config);
-        // note that we only have two "levels" of configuration: global and server-specific, plugin-specific and driver-specific.
-        // therefore we do not need to recursively normalize the properties.
-        CONFIG_GROUPS.forEach((key) => {
-          if (retval.config[key]) {
-            retval.config[key] = objectKeysToCamelCase(retval.config[key]);
-          }
-        });
+        retval.config = normalizeConfig(retval.config);
       }
-      log.debug('Final config result: ', retval);
+      log.verbose(format('Final config result: %O', retval));
       return retval;
     } finally {
       // clean up the raw config file cache
@@ -186,12 +173,31 @@ export async function readConfigFile (filepath, opts = {}) {
 }
 
 /**
- * Convert object key names from kebab-case to camelCase.
- * @param {object} [obj]
- * @returns New object with camelCased keys.
+ * Convert schema property names to either a) the value of the `appiumDest` property, if any; or b) camel-case
+ * @param {AppiumConfiguration} config - Configuration object
+ * @returns {NormalizedAppiumConfiguration} New object with camel-cased keys.
  */
-function objectKeysToCamelCase (obj = {}) {
-  return _.mapKeys(obj, (value, arg) => _.camelCase(arg));
+function normalizeConfig (config) {
+  return _.mapKeys(
+    _.mapValues(config, (subConfig, subConfigName) =>
+      // if the subConfig (e.g., `server.port`) is an object, normalize its keys
+      !_.isObject(subConfig)
+        ? subConfig
+        : // normalize all keys of the subConfig, preferring `appiumDest` (if it exists),
+      // otherwise camelcase.
+      // this doesn't go more than a single level deep of course, but we may need to.
+        _.mapKeys(
+            subConfig,
+            (value, key) =>
+              schema.properties[subConfigName]?.properties[key]?.appiumDest ??
+              _.camelCase(key),
+        ),
+    ),
+    // this bit maps the _top-level_ keys to `appiumDest`/camel-cased
+    (subConfig, subConfigName) =>
+      schema.properties[subConfigName]?.appiumDest ??
+      _.camelCase(subConfigName),
+  );
 }
 
 /**
@@ -229,37 +235,46 @@ function subSchemaToArgDef (name, subSchema, opts = {}) {
     dest: subSchema.appiumDest ?? _.camelCase(name),
     help: subSchema.description,
   };
-  // these default values were derived from the argument options in `cli/args.js`.
-  switch (subSchema.type) {
-    case 'boolean':
-      argOpts.action = 'store_true';
-      if (assignDefaults) {
-        argOpts.default = subSchema.default ?? false;
-      }
-      break;
-    case 'object':
-      if (assignDefaults) {
-        argOpts.default = subSchema.default ?? {};
-      }
-      break;
-    case 'array':
-      if (assignDefaults) {
-        argOpts.default = subSchema.default ?? [];
-      }
-      break;
-    case 'integer':
-      argOpts.type = 'int';
-    // fallthrough
-    default:
-      if (assignDefaults) {
-        argOpts.default = subSchema.default ?? null;
-      }
-      break;
+
+  // if this is true, then the type is typically handled by a custom function (see `parser-helpers.js`)
+  if (_.isArray(subSchema.type)) {
+    if (assignDefaults) {
+      argOpts.default =
+        subSchema.default ?? _.includes(subSchema.type, 'array') ? [] : null;
+    }
+  } else {
+    // these default values were derived from the argument options in `cli/args.js`.
+    switch (subSchema.type) {
+      case 'boolean':
+        argOpts.action = 'store_true';
+        if (assignDefaults) {
+          argOpts.default = subSchema.default ?? false;
+        }
+        break;
+      case 'object':
+        if (assignDefaults) {
+          argOpts.default = subSchema.default ?? {};
+        }
+        break;
+      case 'array':
+        if (assignDefaults) {
+          argOpts.default = subSchema.default ?? [];
+        }
+        break;
+      case 'integer':
+        argOpts.type = 'int';
+      // fallthrough
+      default:
+        if (assignDefaults) {
+          argOpts.default = subSchema.default ?? null;
+        }
+        break;
+    }
   }
 
   // in a JSON schema, an `enum` can contain many types, but `argparse` can only
   // accept an array of strings...sooo...
-  if (Array.isArray(subSchema.enum) && !_.isEmpty(subSchema.enum)) {
+  if (_.isArray(subSchema.enum) && !_.isEmpty(subSchema.enum)) {
     argOpts.choices = subSchema.enum.map(String);
   }
   // let whatever's in `overrides` override the schema
@@ -328,7 +343,7 @@ export const getDefaultsFromSchema = _.memoize(
  * @property {import('ajv').ErrorObject[]} [errors] - Validation errors
  * @property {string} [filepath] - The path to the config file, if found
  * @property {boolean} [isEmpty] - If `true`, the config file exists but is empty
- * @property {import('./appium-config').AppiumConfigurationSchema} [config] - The parsed configuration
+ * @property {AppiumConfiguration} [config] - The parsed configuration
  * @property {string|import('@sidvind/better-ajv-errors').IOutputError[]} [reason] - Human-readable error messages and suggestions. If the `pretty` option is `true`, this will be a nice string to print.
  */
 
@@ -336,7 +351,7 @@ export const getDefaultsFromSchema = _.memoize(
  * Options for {@link readConfigFile}.
  * @typedef {Object} ReadConfigFileOptions
  * @property {boolean} [pretty=true] If `false`, do not use color and fancy formatting in the `reason` property of the {@link ReadConfigFileResult}. The value of `reason` is then suitable for machine-reading.
- * @property {boolean} [normalizeKeys=true] If `false`, do not normalize key names to camel case.
+ * @property {boolean} [normalize=true] If `false`, do not normalize key names to camel case.
  */
 
 /**
@@ -379,4 +394,14 @@ export const getDefaultsFromSchema = _.memoize(
  * @typedef {Object} SubSchemaToArgDefOptions
  * @property {boolean} [assignDefaults] - If `true`, assign the defaults found in the schema to the returned object.
  * @property {{[key: string]: import('argparse').ArgumentOptions}} [overrides] - Extra stuff that can't be expressed in a static schema
+ */
+
+/**
+ * The contents of an Appium config file. Generated from schema
+ * @typedef {import('./types').AppiumConfiguration} AppiumConfiguration
+ */
+
+/**
+ * The contents of an Appium config file with camelcased property names (and using `appiumDest` value if present). Generated from {@link AppiumConfiguration}
+ * @typedef {import('./types').NormalizedAppiumConfiguration} NormalizedAppiumConfiguration
  */

@@ -19,7 +19,9 @@
     "log-no-colors": false,
     "long-stacktrace": false,
     "no-perms-check": false,
-    "nodeconfig": {},
+    "nodeconfig": {
+      "foo": "bar"
+    },
     "plugins": "all",
     "relaxed-security": false,
     "session-override": false,
