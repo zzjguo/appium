@@ -12,8 +12,6 @@ const path = require('path');
 const fs = require('fs');
 const log = require('fancy-log');
 
-gulp.task('copy-fixtures', () => gulp.src('./test/fixtures/*').pipe(gulp.dest('./build/test/fixtures/')));
-
 // remove 'fsevents' from shrinkwrap, since it causes errors on non-Mac hosts
 // see https://github.com/npm/npm/issues/2679
 
@@ -36,7 +34,21 @@ gulp.task('fixShrinkwrap', function fixShrinkwrap (done) {
   fs.writeFile('./npm-shrinkwrap.json', shrinkwrapString, done);
 });
 
-gulp.task('copy-schema', () => gulp.src('./lib/appium.schema.json').pipe(gulp.dest('./build/lib/')));
+// non-JS files that should be copied into the build dir (since babel does not compile them)
+gulp.task('copy-files', gulp.parallel(
+  function copySchema () {
+    return gulp.src('./lib/appium.schema.json')
+      .pipe(gulp.dest('./build/lib/'));
+  },
+  function copyTestFixtures () {
+    return gulp.src('./test/fixtures/*.txt')
+      .pipe(gulp.dest('./build/test/fixtures'));
+  },
+  function copyTestConfigFixtures () {
+    return gulp.src('./test/fixtures/config/*.txt')
+      .pipe(gulp.dest('./build/test/fixtures/config'));
+  }
+));
 
 boilerplate({
   build: 'appium',
@@ -51,7 +63,7 @@ boilerplate({
     files: ['${testDir}/**/*-specs.js']
   },
   testTimeout: 160000,
-  postTranspile: ['copy-schema', 'copy-fixtures']
+  postTranspile: ['copy-files']
 });
 
 // generates server arguments readme
