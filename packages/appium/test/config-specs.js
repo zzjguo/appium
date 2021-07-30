@@ -2,11 +2,12 @@
 
 import _ from 'lodash';
 import sinon from 'sinon';
-import { getBuildInfo, checkNodeOk, warnNodeDeprecations,
-         getNonDefaultArgs, validateServerArgs,
-         validateTmpDir, showConfig, checkValidPort } from '../lib/config';
+import { getGitRev, getBuildInfo, checkNodeOk, warnNodeDeprecations,
+         getNonDefaultServerArgs, validateServerArgs,
+         validateTmpDir, showConfig, checkValidPort, updateBuildInfo } from '../lib/config';
 import getParser from '../lib/cli/parser';
 import logger from '../lib/logger';
+import { getDefaultsFromSchema } from '../lib/config-file';
 
 describe('Config', function () {
   describe('Appium config', function () {
@@ -93,21 +94,20 @@ describe('Config', function () {
   describe('server arguments', function () {
     let parser = getParser();
     parser.debug = true; // throw instead of exit on error; pass as option instead?
-    let args = {};
+    let args;
+
     beforeEach(function () {
       // give all the defaults
-      for (let rawArg of parser.rawArgs) {
-        args[rawArg[1].dest] = rawArg[1].default;
-      }
+      args = getDefaultsFromSchema({property: 'server'});
     });
-    describe('getNonDefaultArgs', function () {
+    describe('getNonDefaultServerArgs', function () {
       it('should show none if we have all the defaults', function () {
-        let nonDefaultArgs = getNonDefaultArgs(parser, args);
+        let nonDefaultArgs = getNonDefaultServerArgs(parser, args);
         _.keys(nonDefaultArgs).length.should.equal(0);
       });
       it('should catch a non-default argument', function () {
         args.allowCors = true;
-        let nonDefaultArgs = getNonDefaultArgs(parser, args);
+        let nonDefaultArgs = getNonDefaultServerArgs(parser, args);
         _.keys(nonDefaultArgs).length.should.equal(1);
         should.exist(nonDefaultArgs.allowCors);
       });

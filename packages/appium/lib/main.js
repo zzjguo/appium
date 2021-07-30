@@ -11,12 +11,12 @@ import { USE_ALL_PLUGINS } from './cli/args';
 import { logger as logFactory, util } from '@appium/support';
 import {
   showConfig, checkNodeOk, validateServerArgs,
-  warnNodeDeprecations, validateTmpDir, getNonDefaultArgs,
+  warnNodeDeprecations, validateTmpDir, getNonDefaultServerArgs,
   getGitRev, APPIUM_VER
 } from './config';
 import DriverConfig from './driver-config';
 import PluginConfig from './plugin-config';
-import { DRIVER_TYPE, PLUGIN_TYPE } from './extension-config';
+import { DRIVER_TYPE, PLUGIN_TYPE, SERVER_TYPE } from './extension-config';
 import { runExtensionCommand } from './cli/extension';
 import { AppiumDriver } from './appium';
 import registerNode from './grid-register';
@@ -70,7 +70,7 @@ async function logStartupInfo (parser, args) {
   }
   logger.info(welcome);
 
-  let showArgs = getNonDefaultArgs(parser, args);
+  let showArgs = getNonDefaultServerArgs(parser, args);
   if (_.size(showArgs)) {
     logNonDefaultArgsWarning(showArgs);
   }
@@ -180,17 +180,40 @@ async function main (args = null) {
   // the order of precendece is:
   // 1. command line args
   // 2. config file
-  // 3. defaults from config file
+  // 3. defaults from config file.
+  // if no "subcommand" specified (e.g., `args` came from not-`parser.parse_args()`), assume we want a server.
+  switch (args.subcommand) {
+    case DRIVER_TYPE: {
+      args = _.defaultsDeep(
+        args,
+        configResult.config?.driver,
+        getDefaultsFromSchema({property: DRIVER_TYPE})
+      );
+      break;
+    }
+    case PLUGIN_TYPE: {
+      args = _.defaultsDeep(
+        args,
+        configResult.config?.plugin,
+        getDefaultsFromSchema({property: PLUGIN_TYPE})
+      );
+      break;
+    }
+    default: {
+      args = _.defaultsDeep(
+        args,
+        configResult.config?.server,
+        getDefaultsFromSchema({property: SERVER_TYPE})
+      );
+    }
+  }
+
   args = _.defaultsDeep(
     args,
-    configResult.config?.server,
-    configResult.config?.driver,
-    configResult.config?.plugin,
-    getDefaultsFromSchema({property: 'server'}),
-    getDefaultsFromSchema({property: 'driver'}),
-    getDefaultsFromSchema({property: 'plugin'}),
+    configResult.config ?? {},
+    getDefaultsFromSchema({exclude: [PLUGIN_TYPE, DRIVER_TYPE, SERVER_TYPE]})
   );
-  // console.dir(args);
+
   await logsinkInit(args);
 
   if (configResult.config) {

@@ -360,7 +360,7 @@ describe('config-file', function () {
       describe('when provided option "exclude"', function () {
         it('should exclude matching props from the result', function () {
           getDefaultsFromSchema({
-            exclude: 'allow-cors',
+            exclude: ['allow-cors'],
             property: 'server',
           }).should.deep.equal({
             address: '0.0.0.0',
