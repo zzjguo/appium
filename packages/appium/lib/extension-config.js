@@ -7,6 +7,7 @@ import YAML from 'yaml';
 
 const DRIVER_TYPE = 'driver';
 const PLUGIN_TYPE = 'plugin';
+const SERVER_TYPE = 'server';
 const DEFAULT_APPIUM_HOME = path.resolve(os.homedir(), '.appium');
 
 const CONFIG_FILE_NAME = 'extensions.yaml';
@@ -213,5 +214,5 @@ export default class ExtensionConfig {
 
 export {
   INSTALL_TYPE_NPM, INSTALL_TYPE_GIT, INSTALL_TYPE_LOCAL, INSTALL_TYPE_GITHUB,
-  INSTALL_TYPES, DEFAULT_APPIUM_HOME, DRIVER_TYPE, PLUGIN_TYPE,
+  INSTALL_TYPES, DEFAULT_APPIUM_HOME, DRIVER_TYPE, PLUGIN_TYPE, SERVER_TYPE
 };
