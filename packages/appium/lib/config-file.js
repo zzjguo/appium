@@ -314,28 +314,20 @@ export function toParserArgs (opts = {}) {
  * value of `appiumDest` (see schema) or the key name (camel-cased).
  * If no default found, the property will not have an associated key in the returned object.
  * @param {GetDefaultsFromSchemaOptions} [opts] - Options
- * @returns {{[key: string]: string}}
+ * @returns {{[key: string]: import('json-schema').JSONSchema7Type}}
  */
-export const getDefaultsFromSchema = _.memoize(
-  (opts) => {
-    const properties = getIncludedSchemaProperties(opts);
-    return _.omitBy(
-      _.mapValues(
-        _.mapKeys(properties, (value, key) =>
-          _.camelCase(value?.appiumDest ?? key),
-        ),
-        (value) => value.default,
-      ) ?? {},
-      _.isUndefined,
-    );
-  },
-  /**
-   * Key resolver function generates unique cache key for each set of parameters
-   * @param {GetDefaultsFromSchemaOptions} [opts] - Options
-   * */
-  (opts) =>
-    opts ? `${opts.exclude ?? 'all'}-${opts.property ?? 'all'}` : 'all',
-);
+export function getDefaultsFromSchema (opts) {
+  const properties = getIncludedSchemaProperties(opts);
+  const schemaPropsToDests = _.mapKeys(properties, (value, key) =>
+    _.camelCase(value?.appiumDest ?? key),
+  );
+  const defaultsForProp = _.mapValues(
+    schemaPropsToDests,
+    (value) => value.default,
+  );
+  return _.omitBy(defaultsForProp, _.isUndefined);
+}
+
 
 /**
  * Result of calling {@link readConfigFile}.

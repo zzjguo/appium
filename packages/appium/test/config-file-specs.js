@@ -324,10 +324,6 @@ describe('config-file', function () {
   });
 
   describe('getDefaultsFromSchema()', function () {
-    beforeEach(function () {
-      getDefaultsFromSchema.cache.clear();
-    });
-
     describe('default behavior', function () {
       it('should return defaults for top-level schema props (which is empty)', function () {
         // of which there are none!
