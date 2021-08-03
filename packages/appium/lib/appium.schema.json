@@ -149,7 +149,8 @@
           "type": "string",
           "title": "log-level config",
           "description": "Log level (console[:file])",
-          "default": "debug"
+          "default": "debug",
+          "appiumDest": "loglevel"
         },
         "log-timestamp": {
           "$id": "#/properties/server/properties/log-timestamp",
