@@ -82,19 +82,19 @@ describe('Server Parser', function () {
   });
   describe('drivers / plugins', function () {
     it.skip('should parse default driver args correctly from a string', function () {
-    let fakeDriverArgs = {'fake': {'sillyWebServerPort': 1234, 'host': 'hey'}};
-    let args = p.parse_args(['--driver-args', JSON.stringify(fakeDriverArgs)]);
-    args.driverArgs.should.eql(fakeDriverArgs);
-  });
+      let fakeDriverArgs = {'fake': {'sillyWebServerPort': 1234, 'host': 'hey'}};
+      let args = p.parse_args(['--driver-args', JSON.stringify(fakeDriverArgs)]);
+      args.driverArgs.should.eql(fakeDriverArgs);
+    });
     it.skip('should parse default driver args correctly from a file', function () {
-    let fakeDriverArgs = {'fake': {'sillyWebServerPort': 1234, 'host': 'hey'}};
-    let args = p.parse_args(['--driver-args', FAKE_DRIVER_ARGS_FIXTURE]);
-    args.driverArgs.should.eql(fakeDriverArgs);
-  });
+      let fakeDriverArgs = {'fake': {'sillyWebServerPort': 1234, 'host': 'hey'}};
+      let args = p.parse_args(['--driver-args', FAKE_DRIVER_ARGS_FIXTURE]);
+      args.driverArgs.should.eql(fakeDriverArgs);
+    });
     it.skip('should parse default plugin args correctly from a string', function () {
-    let fakePluginArgs = {'fake': {'sillyWebServerPort': 1234, 'host': 'hey'}};
-    let args = p.parse_args(['--plugin-args', JSON.stringify(fakePluginArgs)]);
-    args.pluginArgs.should.eql(fakePluginArgs);
+      let fakePluginArgs = {'fake': {'sillyWebServerPort': 1234, 'host': 'hey'}};
+      let args = p.parse_args(['--plugin-args', JSON.stringify(fakePluginArgs)]);
+      args.pluginArgs.should.eql(fakePluginArgs);
     });
   });
 });

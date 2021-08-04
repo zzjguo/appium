@@ -5,6 +5,8 @@ import sinon from 'sinon';
 import chai from 'chai';
 import sinonChai from 'sinon-chai';
 import chaiAsPromised from 'chai-as-promised';
+import jsonSchema from '../lib/appium.schema.json';
+
 chai.use(chaiAsPromised).use(sinonChai);
 chai.should();
 
@@ -51,9 +53,9 @@ describe('config-file', function () {
     sandbox = sinon.createSandbox();
 
     lcInstance = {
-      load: /** @type {AsyncSearcherLoadStub} */ (sandbox.stub().resolves()),
+      load: /** @type {AsyncSearcherLoadStub} */ (sandbox.stub().resolves({})),
       search: /** @type {AsyncSearcherSearchStub} */ (
-        sandbox.stub().resolves()
+        sandbox.stub().resolves({})
       ),
     };
 
@@ -61,7 +63,10 @@ describe('config-file', function () {
       /** @type {import('sinon').SinonStub<Parameters<ValidateFunction>,ReturnType<ValidateFunction>>}  */ (
         sandbox.stub().returns(true)
       ),
-      {errors: []},
+      {
+        errors: [],
+        schema: jsonSchema,
+      },
     );
 
     mocks = {
@@ -76,7 +81,9 @@ describe('config-file', function () {
 
       // the `compile` method of an `Ajv` instance
       ajv: sandbox.stub().returns({
-        compile: sandbox.stub().returns(validate),
+        addSchema: sandbox.stub().callsFake(() => mocks.ajv),
+        getSchema: sandbox.stub().returns(validate),
+        validateSchema: sandbox.stub(),
       }),
 
       // extra string formatters; Ajv plugin
@@ -90,6 +97,12 @@ describe('config-file', function () {
       },
 
       '@sidvind/better-ajv-errors': sandbox.stub(),
+
+      './logger': {
+        debug: sandbox.stub(),
+        info: sandbox.stub(),
+        verbose: sandbox.stub(),
+      },
 
       // NOTE: we are loading the actual schema for this test
       // since it's easier than mocking it
@@ -147,7 +160,7 @@ describe('config-file', function () {
           beforeEach(async function () {
             lcInstance.search.resolves({
               isEmpty: true,
-              filepath: '',
+              filepath: '/path/to/file.json',
               config: {},
             });
             result = await readConfigFile();
@@ -160,7 +173,10 @@ describe('config-file', function () {
 
         describe('when the config file is not empty', function () {
           beforeEach(function () {
-            lcInstance.search.resolves({config: {foo: 'bar'}, filepath: ''});
+            lcInstance.search.resolves({
+              config: {foo: 'bar'},
+              filepath: '/path/to/file.json',
+            });
           });
 
           it('should validate the config against a schema', async function () {
@@ -177,14 +193,17 @@ describe('config-file', function () {
               result.should.deep.equal({
                 errors: [],
                 config: {foo: 'bar'},
-                filepath: '',
+                filepath: '/path/to/file.json',
               });
             });
           });
 
           describe('when the config file is invalid', function () {
             beforeEach(function () {
-              lcInstance.search.resolves({config: {foo: 'bar'}, filepath: ''});
+              lcInstance.search.resolves({
+                config: {foo: 'bar'},
+                filepath: '/path/to/file.json',
+              });
             });
 
             beforeEach(async function () {
@@ -199,7 +218,7 @@ describe('config-file', function () {
               result.should.deep.equal({
                 errors: [{reason: 'bad'}, {reason: 'superbad'}],
                 config: {foo: 'bar'},
-                filepath: '',
+                filepath: '/path/to/file.json',
               });
             });
           });
@@ -267,7 +286,7 @@ describe('config-file', function () {
           beforeEach(async function () {
             lcInstance.search.resolves({
               isEmpty: true,
-              filepath: '',
+              filepath: '/path/to/file.json',
               config: {},
             });
             result = await readConfigFile();
@@ -280,7 +299,10 @@ describe('config-file', function () {
 
         describe('when the config file is not empty', function () {
           beforeEach(function () {
-            lcInstance.search.resolves({config: {foo: 'bar'}, filepath: ''});
+            lcInstance.search.resolves({
+              config: {foo: 'bar'},
+              filepath: '/path/to/file.json',
+            });
           });
 
           it('should validate the config against a schema', async function () {
@@ -297,7 +319,7 @@ describe('config-file', function () {
               result.should.deep.equal({
                 errors: [],
                 config: {foo: 'bar'},
-                filepath: '',
+                filepath: '/path/to/file.json',
               });
             });
           });
@@ -338,6 +360,7 @@ describe('config-file', function () {
           allowCors: false,
           allowInsecure: [],
           basePath: '/',
+          callbackPort: 4723,
           debugLogSpacing: false,
           denyInsecure: [],
           drivers: '',
@@ -360,29 +383,8 @@ describe('config-file', function () {
       describe('when provided option "exclude"', function () {
         it('should exclude matching props from the result', function () {
           getDefaultsFromSchema({
-            exclude: ['allow-cors'],
-            property: 'server',
-          }).should.deep.equal({
-            address: '0.0.0.0',
-            allowInsecure: [],
-            basePath: '/',
-            debugLogSpacing: false,
-            denyInsecure: [],
-            drivers: '',
-            keepAliveTimeout: 600,
-            localTimezone: false,
-            loglevel: 'debug',
-            logNoColors: false,
-            logTimestamp: false,
-            longStacktrace: false,
-            noPermsCheck: false,
-            nodeconfig: '',
-            plugins: '',
-            port: 4723,
-            relaxedSecurity: false,
-            sessionOverride: false,
-            strictCaps: false,
-          });
+            exclude: ['server'],
+          }).should.deep.equal({});
         });
       });
     });

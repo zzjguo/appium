@@ -2,9 +2,9 @@
 
 import _ from 'lodash';
 import sinon from 'sinon';
-import { getGitRev, getBuildInfo, checkNodeOk, warnNodeDeprecations,
+import { getBuildInfo, checkNodeOk, warnNodeDeprecations,
          getNonDefaultServerArgs, validateServerArgs,
-         validateTmpDir, showConfig, checkValidPort, updateBuildInfo } from '../lib/config';
+         validateTmpDir, showConfig, checkValidPort } from '../lib/config';
 import getParser from '../lib/cli/parser';
 import logger from '../lib/logger';
 import { getDefaultsFromSchema } from '../lib/config-file';
