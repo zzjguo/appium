@@ -92,8 +92,6 @@ class FakeDriver extends BaseDriver {
 
 }
 
-for (let [cmd, fn] of _.toPairs(commands)) {
-  FakeDriver.prototype[cmd] = fn;
-}
+Object.assign(FakeDriver.prototype, commands);
 
 export { FakeDriver };

@@ -27,7 +27,8 @@
     "build/index.js",
     "build/lib",
     "test/fixtures",
-    "screen.png"
+    "screen.png",
+    "fake-driver.schema.json"
   ],
   "dependencies": {
     "@appium/base-driver": "^8.0.0-beta.6",
@@ -55,6 +56,7 @@
       "Fake"
     ],
     "mainClass": "FakeDriver",
+    "schema": "./build/lib/fake-driver.schema.json",
     "scripts": {
       "fake-error": "./build/lib/scripts/fake-error.js",
       "fake-success": "./build/lib/scripts/fake-success.js"
