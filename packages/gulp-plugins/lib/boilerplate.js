@@ -86,9 +86,6 @@ const boilerplate = function (gulp, opts) {
   if (opts.transpile && !opts.test) {
     defaultSequence.push('transpile');
   }
-  if (opts.postTranspile) {
-    defaultSequence.push(...opts.postTranspile);
-  }
   if (opts.test) {
     if (opts.watchE2E) {
       defaultSequence.push('test');
