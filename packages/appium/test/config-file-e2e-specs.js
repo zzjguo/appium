@@ -1,11 +1,6 @@
 import path from 'path';
-import chai from 'chai';
-import chaiAsPromised from 'chai-as-promised';
 import {logger} from '@appium/support';
 import {readConfigFile} from '../lib/config-file';
-
-chai.use(chaiAsPromised);
-chai.should();
 
 describe('config file behavior', function () {
 

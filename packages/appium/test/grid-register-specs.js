@@ -1,12 +1,5 @@
-import chai from 'chai';
 import sinon from 'sinon';
-import sinonChai from 'sinon-chai';
-import chaiAsPromised from 'chai-as-promised';
 import rewiremock from 'rewiremock';
-
-chai.use(chaiAsPromised).use(sinonChai);
-
-chai.should();
 
 describe('grid-register', function () {
   let sandbox;
