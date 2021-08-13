@@ -5,10 +5,10 @@ import sinon from 'sinon';
 import chai from 'chai';
 import sinonChai from 'sinon-chai';
 import chaiAsPromised from 'chai-as-promised';
-import jsonSchema from '../lib/appium.schema.json';
 
 chai.use(chaiAsPromised).use(sinonChai);
 chai.should();
+import jsonSchema from '../lib/appium-config-schema';
 
 describe('config-file', function () {
   /**

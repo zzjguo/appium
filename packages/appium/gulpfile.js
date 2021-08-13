@@ -11,10 +11,32 @@ const boilerplate = require('@appium/gulp-plugins').boilerplate.use(gulp);
 const path = require('path');
 const fs = require('fs');
 const log = require('fancy-log');
+const {obj: through} = require('through2');
+const stringify = require('fast-safe-stringify');
+
+const APPIUM_CONFIG_SCHEMA_BASENAME = 'appium-config.schema.json';
+const APPIUM_CONFIG_SCHEMA_PATH = require.resolve('./build/lib/appium-config-schema');
+
+/**
+ * Expects a single file (as defined by `APPIUM_CONFIG_SCHEMA_PATH`) and converts
+ * that file to JSON.
+ * @param {import('vinyl')} file - Vinyl file object
+ * @param {BufferEncoding} enc - Encoding
+ * @param {import('through2').TransformCallback} done - Callback
+ */
+function writeAppiumConfigJsonSchema (file, enc, done) {
+  try {
+    const schema = require(file.path);
+    file.contents = Buffer.from(stringify(schema, null, 2));
+    file.basename = APPIUM_CONFIG_SCHEMA_BASENAME;
+    done(null, file);
+  } catch (err) {
+    done(err);
+  }
+}
 
 // remove 'fsevents' from shrinkwrap, since it causes errors on non-Mac hosts
 // see https://github.com/npm/npm/issues/2679
-
 gulp.task('fixShrinkwrap', function fixShrinkwrap (done) {
   let shrinkwrap;
   try {
@@ -36,10 +58,6 @@ gulp.task('fixShrinkwrap', function fixShrinkwrap (done) {
 
 // non-JS files that should be copied into the build dir (since babel does not compile them)
 gulp.task('copy-files', gulp.parallel(
-  function copySchema () {
-    return gulp.src('./lib/appium.schema.json')
-      .pipe(gulp.dest('./build/lib/'));
-  },
   function copyTestFixtures () {
     return gulp.src('./test/fixtures/*.txt')
       .pipe(gulp.dest('./build/test/fixtures'));
@@ -49,6 +67,13 @@ gulp.task('copy-files', gulp.parallel(
       .pipe(gulp.dest('./build/test/fixtures/config'));
   }
 ));
+
+gulp.task('generate-appium-schema-json', function () {
+  // don't care about file contents as text, so `read: false`
+  return gulp.src(APPIUM_CONFIG_SCHEMA_PATH, {read: false})
+    .pipe(through(writeAppiumConfigJsonSchema))
+    .pipe(gulp.dest('./build/lib/'));
+});
 
 boilerplate({
   build: 'appium',
@@ -63,7 +88,7 @@ boilerplate({
     files: ['${testDir}/**/*-specs.js']
   },
   testTimeout: 160000,
-  postTranspile: ['copy-files']
+  postTranspile: ['copy-files', 'generate-appium-schema-json']
 });
 
 // generates server arguments readme

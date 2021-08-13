@@ -5,7 +5,7 @@ import _ from 'lodash';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import betterAjvErrors from '@sidvind/better-ajv-errors';
-import jsonSchema from './appium.schema.json';
+import jsonSchema from './appium-config-schema';
 
 // singleton ajv instance
 const ajv = addFormats(
