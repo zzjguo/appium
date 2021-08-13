@@ -1,3 +1,4 @@
+// @ts-check
 /* eslint no-console:0 */
 /* eslint-disable promise/prefer-await-to-callbacks */
 'use strict';
@@ -15,7 +16,6 @@ const {obj: through} = require('through2');
 const stringify = require('fast-safe-stringify');
 
 const APPIUM_CONFIG_SCHEMA_BASENAME = 'appium-config.schema.json';
-const APPIUM_CONFIG_SCHEMA_PATH = require.resolve('./build/lib/appium-config-schema');
 
 /**
  * Expects a single file (as defined by `APPIUM_CONFIG_SCHEMA_PATH`) and converts
@@ -27,6 +27,7 @@ const APPIUM_CONFIG_SCHEMA_PATH = require.resolve('./build/lib/appium-config-sch
 function writeAppiumConfigJsonSchema (file, enc, done) {
   try {
     const schema = require(file.path);
+    // @ts-ignore
     file.contents = Buffer.from(stringify(schema, null, 2));
     file.basename = APPIUM_CONFIG_SCHEMA_BASENAME;
     done(null, file);
@@ -40,6 +41,7 @@ function writeAppiumConfigJsonSchema (file, enc, done) {
 gulp.task('fixShrinkwrap', function fixShrinkwrap (done) {
   let shrinkwrap;
   try {
+    // @ts-ignore
     shrinkwrap = require('./npm-shrinkwrap.json');
   } catch (err) {
     log.error('Could not find shrinkwrap; skipping fixing shrinkwrap. ' +
@@ -70,7 +72,7 @@ gulp.task('copy-files', gulp.parallel(
 
 gulp.task('generate-appium-schema-json', function () {
   // don't care about file contents as text, so `read: false`
-  return gulp.src(APPIUM_CONFIG_SCHEMA_PATH, {read: false})
+  return gulp.src('./build/lib/appium-config-schema.js', {read: false})
     .pipe(through(writeAppiumConfigJsonSchema))
     .pipe(gulp.dest('./build/lib/'));
 });
@@ -92,7 +94,8 @@ boilerplate({
 });
 
 // generates server arguments readme
-gulp.task('docs', gulp.series(['transpile']), function parseDocs () {
+gulp.task('docs', gulp.series(['transpile', function parseDocs () {
+  // @ts-ignore
   const parser = require('./build/lib/parser.js');
   const appiumArguments = parser.getParser().rawArgs;
   const docFile = path.resolve(__dirname, 'docs/en/writing-running-appium/server-args.md');
@@ -137,4 +140,4 @@ gulp.task('docs', gulp.series(['transpile']), function parseDocs () {
       log('New docs written! Do not forget to commit and push');
     }
   });
-});
+}]));
