@@ -26,7 +26,7 @@ const APPIUM_CONFIG_SCHEMA_BASENAME = 'appium-config.schema.json';
  */
 function writeAppiumConfigJsonSchema (file, enc, done) {
   try {
-    const schema = require(file.path);
+    const {default: schema} = require(file.path);
     // @ts-ignore
     file.contents = Buffer.from(stringify(schema, null, 2));
     file.basename = APPIUM_CONFIG_SCHEMA_BASENAME;

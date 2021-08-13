@@ -29,9 +29,8 @@ const configure = function configure (gulp, opts, env) {
     }
   ];
 
-  gulp.task('post-transpile', gulp.parallel(opts.postTranspile ?? []));
-
-  if (opts.postTranspile) {
+  if (opts.postTranspile?.length) {
+    gulp.task('post-transpile', gulp.parallel(opts.postTranspile));
     tasks.push('post-transpile');
   }
 

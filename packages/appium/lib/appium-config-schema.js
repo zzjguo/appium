@@ -5,15 +5,6 @@ export default {
   title: 'Appium Configuration',
   description: 'A schema for Appium configuration files',
   properties: {
-    'appium-home': {
-      $id: '#/properties/appium-home',
-      type: 'string',
-      title: 'appium-home config',
-      description:
-        "path to the directory where Appium will keep installed drivers, plugins, and any other metadata necessary for its operation. Defaults to APPIUM_HOME env var; failing that, a system-specific location in the current user's home directory.",
-      appiumAliases: ['home', 'ah'],
-      appiumDest: 'appiumHome',
-    },
     'log-filters': {
       $id: '#/properties/log-filters',
       type: 'array',
