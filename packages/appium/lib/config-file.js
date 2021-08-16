@@ -4,19 +4,13 @@ import {
   APPIUM_CONFIG_SCHEMA_ID,
   getValidator,
   formatErrors,
-  filterSchemaProperties,
+  getSchema,
 } from './schema';
 import {format} from 'util';
 import log from './logger';
 import _ from 'lodash';
 import {lilconfig} from 'lilconfig';
 import yaml from 'yaml';
-
-/**
- * Any argument alias shorter than this number will be considered a "short" argument beginning with a single dash
- * @type {Readonly<number>}
- */
-const SHORT_ARG_CUTOFF = 3;
 
 /**
  * lilconfig loader to handle `.yaml` files
@@ -103,20 +97,19 @@ async function findConfigFile (filepath) {
 /**
  * Given an object, validates it against the Appium config schema.
  * If errors occur, the returned array will be non-empty.
- * @todo Provide API to validate against driver/plugin schemas.
  * @public
  * @param {any} value - The value (hopefully an object) to validate against the schema
+ * @param {string} [id] - Schema ID
  * @returns {import('ajv').ErrorObject[]} Array of errors, if any.
  */
-export function validateConfig (value) {
-  const validator = getValidator(APPIUM_CONFIG_SCHEMA_ID);
+export function validateConfig (value, id = APPIUM_CONFIG_SCHEMA_ID) {
+  const validator = getValidator(id);
   if (!validator) {
     throw new Error(
-      `Could not find schema with ID: ${APPIUM_CONFIG_SCHEMA_ID}`,
+      `Could not find schema with ID: ${id}`,
     );
   }
-  return !validator(value) &&
-    _.isArray(validator.errors)
+  return !validator(value) && _.isArray(validator.errors)
     ? [...validator.errors]
     : [];
 }
@@ -171,14 +164,12 @@ export async function readConfigFile (filepath, opts = {}) {
 /**
  * Convert schema property names to either a) the value of the `appiumDest` property, if any; or b) camel-case
  * @param {AppiumConfiguration} config - Configuration object
+ * @param {string} [id] - Schema ID
  * @returns {NormalizedAppiumConfiguration} New object with camel-cased keys.
  */
-function normalizeConfig (config) {
-  const jsonSchema =
-    /** @type {import('./schema').AppiumConfigJsonSchemaType} */ (
-      getValidator(APPIUM_CONFIG_SCHEMA_ID)?.schema
-    );
-  if (jsonSchema) {
+function normalizeConfig (config, id = APPIUM_CONFIG_SCHEMA_ID) {
+  const schema = getSchema(id);
+  if (schema) {
     return _.mapKeys(
       _.mapValues(config, (subConfig, subConfigName) =>
         // if the subConfig (e.g., `server.port`) is an object, normalize its keys
@@ -190,136 +181,17 @@ function normalizeConfig (config) {
           _.mapKeys(
               subConfig,
               (value, key) =>
-                jsonSchema.properties[subConfigName]?.properties[key]
-                  ?.appiumDest ?? _.camelCase(key),
+                schema.properties[subConfigName]?.properties[key]?.appiumDest ??
+                _.camelCase(key),
           ),
       ),
       // this bit maps the _top-level_ keys to `appiumDest`/camel-cased
       (subConfig, subConfigName) =>
-        jsonSchema.properties[subConfigName]?.appiumDest ??
+        schema.properties[subConfigName]?.appiumDest ??
         _.camelCase(subConfigName),
     );
   }
-  throw new Error(
-    'Could not find the Appium Configuration Schema! What Gives?',
-  );
-}
-
-/**
- * Converts flag aliases to actual flags.
- * Any flag shorter than 3 characters is prefixed with a single dash, otherwise two.
- * @param {string} alias - A flag alias (e.g. `verbose`) to convert to a flag (e.g., `--verbose`)
- * @throws {TypeError} If `alias` is falsy
- */
-function aliasToFlag (alias) {
-  return alias.length < SHORT_ARG_CUTOFF ? `-${alias}` : `--${alias}`;
-}
-
-/**
- * Convert a schema property to a data structure suitable for handing to `argparse`.
- * @param {string} name - Property name
- * @param {{[key:string]: any}} subSchema - JSON Schema subschema
- * @param {SubSchemaToArgDefOptions} [opts] - Options
- * @returns {[string[], import('argparse').ArgumentOptions]} A tuple of argument aliases (in "flag" format) and an `ArgumentOptions` object
- */
-function subSchemaToArgDef (name, subSchema, opts = {}) {
-  const {overrides = {}, assignDefaults = false} = opts;
-
-  /**
-   * This is a list of all aliases for this argument in "flag" format (e.g., one of `--flag` or `-f`).
-   * Aliases are defined by the `appiumAliases` property of the schema
-   */
-  const aliases = [
-    aliasToFlag(name),
-    ...(subSchema.appiumAliases ?? []).map(aliasToFlag),
-  ];
-
-  /** @type {import('argparse').ArgumentOptions} */
-  let argOpts = {
-    required: false, // we have _no_ required arguments
-    dest: subSchema.appiumDest ?? _.camelCase(name),
-    help: subSchema.description,
-  };
-
-  // if this is true, then the type is typically handled by a custom function (see `parser-helpers.js`)
-  if (_.isArray(subSchema.type)) {
-    if (assignDefaults) {
-      argOpts.default =
-        subSchema.default ?? _.includes(subSchema.type, 'array') ? [] : null;
-    }
-  } else {
-    // these default values were derived from the argument options in `cli/args.js`.
-    switch (subSchema.type) {
-      case 'boolean':
-        argOpts.action = 'store_true';
-        if (assignDefaults) {
-          argOpts.default = subSchema.default ?? false;
-        }
-        break;
-      case 'object':
-        if (assignDefaults) {
-          argOpts.default = subSchema.default ?? {};
-        }
-        break;
-      case 'array':
-        if (assignDefaults) {
-          argOpts.default = subSchema.default ?? [];
-        }
-        break;
-      case 'integer':
-        argOpts.type = 'int';
-      // fallthrough
-      default:
-        if (assignDefaults) {
-          argOpts.default = subSchema.default ?? null;
-        }
-        break;
-    }
-  }
-
-  // in a JSON schema, an `enum` can contain many types, but `argparse` can only
-  // accept an array of strings...sooo...
-  if (_.isArray(subSchema.enum) && !_.isEmpty(subSchema.enum)) {
-    argOpts.choices = subSchema.enum.map(String);
-  }
-  // let whatever's in `overrides` override the schema
-  argOpts = _.merge(
-    argOpts,
-    overrides[name] ?? (argOpts.dest && overrides[argOpts.dest]) ?? {},
-  );
-  return [aliases, argOpts];
-}
-
-/**
- * Convert a sub-schema to an array of `SubparserOptions` for `ArgumentParser`.
- * @param {ToParserArgsOptions} [opts] - Options
- * @returns {[string[], import('argparse').ArgumentOptions][]}
- */
-export function toParserArgs (opts = {}) {
-  return _.map(filterSchemaProperties(opts), (value, key) =>
-    subSchemaToArgDef(key, value, opts),
-  );
-}
-
-/**
- * Get defaults from the schema. Returns object with keys matching the camel-cased
- * value of `appiumDest` (see schema) or the key name (camel-cased).
- * If no default found, the property will not have an associated key in the returned object.
- * @param {GetDefaultsFromSchemaOptions} [opts] - Options
- * @returns {{[key: string]: import('ajv').JSONType}}
- */
-export function getDefaultsFromSchema (opts) {
-  const properties = filterSchemaProperties(opts);
-  const schemaPropsToDests = _.mapKeys(properties, (value, key) =>
-    // @ts-ignore
-    _.camelCase(value?.appiumDest ?? key),
-  );
-  const defaultsForProp = _.mapValues(
-    schemaPropsToDests,
-    // @ts-ignore
-    (value) => value.default,
-  );
-  return _.omitBy(defaultsForProp, _.isUndefined);
+  throw new Error(`Could not find schema with id ${id}`);
 }
 
 /**
@@ -340,37 +212,9 @@ export function getDefaultsFromSchema (opts) {
  */
 
 /**
- * Options for {@link getDefaultsFromSchema}.
- * @typedef {Object} GetDefaultsFromSchemaOptions
- * @property {TopLevelSchemaGroup} [property] - Top-level property to get defaults for
- * @property {TopLevelSchemaGroup[]} [exclude] - Properties to exclude from the defaults
- */
-
-/**
- * @typedef {import('./schema').TopLevelSchemaGroup} TopLevelSchemaGroup
- */
-
-/**
- * Options for {@link toParserArgs}.
- * @typedef {Object} ToParserArgsOptions
- * @property {TopLevelSchemaGroup} [property] - Top-level property to convert. If not provided, the root ("shared") properties will be converted; will not walk down any object properties (e.g., `server`).
- * @property {object} [overrides] - Extra stuff that can't be expressed in a static schema including validation/parsing functions
- * @property {TopLevelSchemaGroup[]} [exclude] - Exclude certain properties from processing; some things only make sense in the context of a config file
- * @property {boolean} [assignDefaults] - If `true`, default values will be assigned to the config object. Generally this should be `false`, because we do not want defaults to override configuration files.
- */
-
-/**
  * This is an `AsyncSearcher` which is inexplicably _not_ exported by the `lilconfig` type definition.
  * @private
  * @typedef {ReturnType<import('lilconfig')["lilconfig"]>} LilconfigAsyncSearcher
- */
-
-/**
- * Options for {@link subSchemaToArgDef}.
- * @private
- * @typedef {Object} SubSchemaToArgDefOptions
- * @property {boolean} [assignDefaults] - If `true`, assign the defaults found in the schema to the returned object.
- * @property {{[key: string]: import('argparse').ArgumentOptions}} [overrides] - Extra stuff that can't be expressed in a static schema
  */
 
 /**

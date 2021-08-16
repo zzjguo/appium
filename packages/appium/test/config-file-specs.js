@@ -2,7 +2,13 @@
 
 import rewiremock from 'rewiremock';
 import sinon from 'sinon';
-import jsonSchema from '../lib/appium-config-schema';
+import chai from 'chai';
+import sinonChai from 'sinon-chai';
+import chaiAsPromised from 'chai-as-promised';
+import appiumConfigSchema from '../lib/appium-config-schema';
+
+chai.use(chaiAsPromised).use(sinonChai);
+chai.should();
 
 describe('config-file', function () {
   /**
@@ -15,12 +21,6 @@ describe('config-file', function () {
    * @type {typeof import('../lib/config-file').readConfigFile}
    */
   let readConfigFile;
-
-  /**
-   * `getDefaultsFromSchema()` from an isolated `config-file` module
-   * @type {typeof import('../lib/config-file').getDefaultsFromSchema}
-   */
-  let getDefaultsFromSchema;
 
   /**
    * Mock instance of `lilconfig` containing stubs for
@@ -39,7 +39,7 @@ describe('config-file', function () {
 
   /**
    * Mock schema validation function, _a la_ Ajv.
-   * @type {import('sinon').SinonStub<Parameters<ValidateFunction>,ReturnType<ValidateFunction>> & {errors: object[]}}
+   * @type {import('sinon').SinonStub<Parameters<ValidateFunction>,ReturnType<ValidateFunction>> & {errors: object[], schema: typeof appiumConfigSchema}}
    */
   let validate;
 
@@ -59,7 +59,7 @@ describe('config-file', function () {
       ),
       {
         errors: [],
-        schema: jsonSchema,
+        schema: appiumConfigSchema,
       },
     );
 
@@ -90,16 +90,19 @@ describe('config-file', function () {
         },
       },
 
-      '@sidvind/better-ajv-errors': sandbox.stub(),
-
       './logger': {
         debug: sandbox.stub(),
         info: sandbox.stub(),
         verbose: sandbox.stub(),
       },
 
-      // NOTE: we are loading the actual schema for this test
-      // since it's easier than mocking it
+      './schema': {
+        APPIUM_CONFIG_SCHEMA_ID: 'schema-id',
+        getValidator: sandbox.stub().returns(validate),
+        formatErrors: sandbox.stub().returns(''),
+        getSchema: sandbox.stub().returns(appiumConfigSchema),
+        getAppiumConfigValidator: sandbox.stub().returns(validate)
+      },
     };
 
     // loads the `config-file` module using the mocks above
@@ -108,7 +111,6 @@ describe('config-file', function () {
       mocks,
     );
     readConfigFile = configFileModule.readConfigFile;
-    getDefaultsFromSchema = configFileModule.getDefaultsFromSchema;
   });
 
   describe('readConfigFile()', function () {
@@ -328,57 +330,12 @@ describe('config-file', function () {
             });
 
             it('should resolve with an object having a nonempty array of errors', function () {
-              result.should.deep.property('errors', [
+              result.should.have.deep.property('errors', [
                 {reason: 'bad'},
                 {reason: 'superbad'},
               ]);
             });
           });
-        });
-      });
-    });
-  });
-
-  describe('getDefaultsFromSchema()', function () {
-    describe('default behavior', function () {
-      it('should return defaults for top-level schema props (which is empty)', function () {
-        // of which there are none!
-        getDefaultsFromSchema().should.be.empty;
-      });
-    });
-
-    describe('when provided option "property"', function () {
-      it('should return values for all child props', function () {
-        getDefaultsFromSchema({property: 'server'}).should.deep.equal({
-          address: '0.0.0.0',
-          allowCors: false,
-          allowInsecure: [],
-          basePath: '/',
-          callbackPort: 4723,
-          debugLogSpacing: false,
-          denyInsecure: [],
-          drivers: '',
-          keepAliveTimeout: 600,
-          localTimezone: false,
-          loglevel: 'debug',
-          logNoColors: false,
-          logTimestamp: false,
-          longStacktrace: false,
-          noPermsCheck: false,
-          nodeconfig: '',
-          plugins: '',
-          port: 4723,
-          relaxedSecurity: false,
-          sessionOverride: false,
-          strictCaps: false,
-        });
-      });
-
-      describe('when provided option "exclude"', function () {
-        it('should exclude matching props from the result', function () {
-          getDefaultsFromSchema({
-            exclude: ['server'],
-          }).should.deep.equal({});
         });
       });
     });

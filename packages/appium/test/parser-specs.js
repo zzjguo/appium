@@ -1,8 +1,14 @@
 // transpile:mocha
 
 import { getParser } from '../lib/cli/parser';
-import { INSTALL_TYPES, DEFAULT_APPIUM_HOME } from '../lib/extension-config';
+import { INSTALL_TYPES } from '../lib/extension-config';
 import path from 'path';
+import chai from 'chai';
+import chaiAsPromised from 'chai-as-promised';
+
+const should = chai.should();
+
+chai.use(chaiAsPromised);
 
 // these paths should not make assumptions about the current working directory
 const FIXTURE_DIR = path.join(__dirname, 'fixtures');
@@ -12,7 +18,12 @@ const FAKE_DRIVER_ARGS_FIXTURE = path.join(FIXTURE_DIR, 'driverArgs.json');
 const CAPS_FIXTURE = path.join(FIXTURE_DIR, 'caps.json');
 
 describe('Main Parser', function () {
-  let p = getParser(true);
+  let p;
+
+  before(async function () {
+    p = await getParser(true);
+  });
+
   it('should accept only server and driver subcommands', function () {
     p.parse_args([]);
     p.parse_args(['server']);
@@ -23,7 +34,12 @@ describe('Main Parser', function () {
 });
 
 describe('Server Parser', function () {
-  let p = getParser(true);
+  let p;
+
+  before(async function () {
+    p = await getParser(true);
+  });
+
   it('should return an arg parser', function () {
     should.exist(p.parse_args);
     p.parse_args([]).should.have.property('port');
@@ -100,7 +116,12 @@ describe('Server Parser', function () {
 });
 
 describe('Driver Parser', function () {
-  let p = getParser(true);
+  let p;
+
+  before(async function () {
+    p = await getParser(true);
+  });
+
   it('should not allow random sub-subcommands', function () {
     (() => p.parse_args(['driver', 'foo'])).should.throw();
   });
@@ -112,15 +133,10 @@ describe('Driver Parser', function () {
       args.showInstalled.should.eql(false);
       args.showUpdates.should.eql(false);
       args.json.should.eql(false);
-      args.appiumHome.should.eql(DEFAULT_APPIUM_HOME);
     });
     it('should allow json format', function () {
       const args = p.parse_args(['driver', 'list', '--json']);
       args.json.should.eql(true);
-    });
-    it('should allow custom appium home', function () {
-      const args = p.parse_args(['driver', 'list', '--home', '/foo/bar']);
-      args.appiumHome.should.eql('/foo/bar');
     });
     it('should allow --installed', function () {
       const args = p.parse_args(['driver', 'list', '--installed']);
@@ -141,16 +157,11 @@ describe('Driver Parser', function () {
       args.driverCommand.should.eql('install');
       args.driver.should.eql('foobar');
       should.not.exist(args.installType);
-      args.appiumHome.should.eql(DEFAULT_APPIUM_HOME);
       args.json.should.eql(false);
     });
     it('should allow json format', function () {
       const args = p.parse_args(['driver', 'install', 'foobar', '--json']);
       args.json.should.eql(true);
-    });
-    it('should allow custom appium home', function () {
-      const args = p.parse_args(['driver', 'install', 'foobar', '--home', '/foo/bar']);
-      args.appiumHome.should.eql('/foo/bar');
     });
     it('should allow --source', function () {
       for (const source of INSTALL_TYPES) {
@@ -171,16 +182,11 @@ describe('Driver Parser', function () {
       args.subcommand.should.eql('driver');
       args.driverCommand.should.eql('uninstall');
       args.driver.should.eql('foobar');
-      args.appiumHome.should.eql(DEFAULT_APPIUM_HOME);
       args.json.should.eql(false);
     });
     it('should allow json format', function () {
       const args = p.parse_args(['driver', 'uninstall', 'foobar', '--json']);
       args.json.should.eql(true);
-    });
-    it('should allow custom appium home', function () {
-      const args = p.parse_args(['driver', 'uninstall', 'foobar', '--home', '/foo/bar']);
-      args.appiumHome.should.eql('/foo/bar');
     });
   });
   describe('update', function () {
@@ -192,16 +198,11 @@ describe('Driver Parser', function () {
       args.subcommand.should.eql('driver');
       args.driverCommand.should.eql('update');
       args.driver.should.eql('foobar');
-      args.appiumHome.should.eql(DEFAULT_APPIUM_HOME);
       args.json.should.eql(false);
     });
     it('should allow json format', function () {
       const args = p.parse_args(['driver', 'update', 'foobar', '--json']);
       args.json.should.eql(true);
-    });
-    it('should allow custom appium home', function () {
-      const args = p.parse_args(['driver', 'update', 'foobar', '--home', '/foo/bar']);
-      args.appiumHome.should.eql('/foo/bar');
     });
   });
   describe('run', function () {
@@ -217,7 +218,6 @@ describe('Driver Parser', function () {
       args.driverCommand.should.eql('run');
       args.driver.should.eql('foo');
       args.scriptName.should.eql('bar');
-      args.appiumHome.should.eql(DEFAULT_APPIUM_HOME);
       args.json.should.eql(false);
     });
     it('should allow json format for driver', function () {
@@ -236,7 +236,6 @@ describe('Driver Parser', function () {
       args.pluginCommand.should.eql('run');
       args.plugin.should.eql('foo');
       args.scriptName.should.eql('bar');
-      args.appiumHome.should.eql(DEFAULT_APPIUM_HOME);
       args.json.should.eql(false);
     });
     it('should allow json format for plugin', function () {

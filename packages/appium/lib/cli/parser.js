@@ -1,7 +1,7 @@
 import path from 'path';
 import _ from 'lodash';
 import { ArgumentParser } from 'argparse';
-import { sharedArgs, serverArgs, extensionArgs } from './args';
+import { getSharedArgs, getServerArgs, getExtensionArgs } from './args';
 import { DRIVER_TYPE, PLUGIN_TYPE } from '../extension-config';
 import { rootDir } from '../utils';
 import { fs } from '@appium/support';
@@ -13,7 +13,7 @@ function makeDebugParser (parser) {
   };
 }
 
-function getParser (debug = false) {
+async function getParser (debug = false) {
   const parser = new ArgumentParser({
     add_help: true,
     description: 'A webdriver-compatible server for use with native and hybrid iOS and Android applications.',
@@ -28,10 +28,11 @@ function getParser (debug = false) {
   });
   const subParsers = parser.add_subparsers({dest: 'subcommand'});
 
+  const sharedArgs = getSharedArgs();
   // add the 'server' subcommand, and store the raw arguments on the parser
   // object as a way for other parts of the code to work with the arguments
   // conceptually rather than just through argparse
-  const serverArgs = addServerToParser(sharedArgs, subParsers, debug);
+  const serverArgs = await addServerToParser(sharedArgs, subParsers, debug);
   parser.rawArgs = serverArgs;
 
   // add the 'driver' and 'plugin' subcommands
@@ -42,7 +43,7 @@ function getParser (debug = false) {
   parser._parse_args = parser.parse_args.bind(parser);
   parser.parse_args = function (args, namespace) {
     if (_.isUndefined(args)) {
-      args = [...process.argv.slice(2)];
+      args = process.argv.slice(2);
     }
     if (!_.includes([DRIVER_TYPE, PLUGIN_TYPE, 'server', '-h', '--help', '-v', '--version'], args[0])) {
       args.splice(0, 0, 'server');
@@ -52,7 +53,7 @@ function getParser (debug = false) {
   return parser;
 }
 
-function addServerToParser (sharedArgs, subParsers, debug = false) {
+async function addServerToParser (sharedArgs, subParsers, debug = false) {
   const serverParser = subParsers.add_parser('server', {
     add_help: true,
     help: 'Run an Appium server',
@@ -62,6 +63,7 @@ function addServerToParser (sharedArgs, subParsers, debug = false) {
     makeDebugParser(serverParser);
   }
 
+  const serverArgs = await getServerArgs();
   for (const [flagsOrNames, opts] of [...sharedArgs, ...serverArgs]) {
     // add_argument mutates arguments so make copies
     serverParser.add_argument(...flagsOrNames, {...opts});
@@ -82,6 +84,7 @@ function addExtensionsToParser (sharedArgs, subParsers, debug = false) {
     const extSubParsers = extParser.add_subparsers({
       dest: `${type}Command`,
     });
+    const extensionArgs = getExtensionArgs();
     const parserSpecs = [
       {command: 'list', args: extensionArgs[type].list,
        help: `List available and installed ${type}s`},

@@ -23,6 +23,7 @@ const INSTALL_TYPES = [
   INSTALL_TYPE_LOCAL,
   INSTALL_TYPE_NPM
 ];
+const SCHEMA_ID_EXTENSION_PROPERTY = 'pkgName';
 
 
 export default class ExtensionConfig {
@@ -118,29 +119,35 @@ export default class ExtensionConfig {
     }
   }
 
-  async read () {
-    await mkdirp(this.appiumHome); // ensure appium home exists
-    try {
-      this.yamlData = YAML.parse(await fs.readFile(this.configFile, 'utf8'));
-      this.applySchemaMigrations();
-
-      // set the list of drivers the user has installed
-      this.installedExtensions = this.validate(this.yamlData[this.configKey]);
-    } catch (err) {
-      if (await fs.exists(this.configFile)) {
-        // if the file exists and we couldn't parse it, that's a problem
-        throw new Error(`Appium had trouble loading the extension installation ` +
-                        `cache file (${this.configFile}). Ensure it exists and is ` +
-                        `readable. Specific error: ${err.message}`);
-      }
-
-      // if the config file doesn't exist, try to write an empty one, to make
-      // sure we actually have write privileges, and complain if we don't
+  /**
+   * Read YAML config from disk, or create one if it does not exist.
+   * @param {boolean} [force] - If true, force a re-read of the config file.
+   */
+  async read (force) {
+    if (this.installedExtensions && !force) {
+      await mkdirp(this.appiumHome); // ensure appium home exists
       try {
-        await this.write();
-      } catch {
-        throw new Error(`Appium could not read or write from the Appium Home directory ` +
-                        `(${this.appiumHome}). Please ensure it is writable.`);
+        this.yamlData = YAML.parse(await fs.readFile(this.configFile, 'utf8'));
+        this.applySchemaMigrations();
+
+        // set the list of drivers the user has installed
+        this.installedExtensions = this.validate(this.yamlData[this.configKey]);
+      } catch (err) {
+        if (await fs.exists(this.configFile)) {
+          // if the file exists and we couldn't parse it, that's a problem
+          throw new Error(`Appium had trouble loading the extension installation ` +
+                          `cache file (${this.configFile}). Ensure it exists and is ` +
+                          `readable. Specific error: ${err.message}`);
+        }
+
+        // if the config file doesn't exist, try to write an empty one, to make
+        // sure we actually have write privileges, and complain if we don't
+        try {
+          await this.write();
+        } catch {
+          throw new Error(`Appium could not read or write from the Appium Home directory ` +
+                          `(${this.appiumHome}). Please ensure it is writable.`);
+        }
       }
     }
     return this.installedExtensions;
@@ -158,14 +165,6 @@ export default class ExtensionConfig {
 
   async addExtension (extName, extData) {
     this.installedExtensions[extName] = extData;
-    await this.write();
-  }
-
-  async updateExtension (extName, extData) {
-    this.installedExtensions[extName] = {
-      ...this.installedExtensions[extName],
-      ...extData,
-    };
     await this.write();
   }
 
@@ -214,5 +213,6 @@ export default class ExtensionConfig {
 
 export {
   INSTALL_TYPE_NPM, INSTALL_TYPE_GIT, INSTALL_TYPE_LOCAL, INSTALL_TYPE_GITHUB,
-  INSTALL_TYPES, DEFAULT_APPIUM_HOME, DRIVER_TYPE, PLUGIN_TYPE, SERVER_TYPE
+  INSTALL_TYPES, DEFAULT_APPIUM_HOME, DRIVER_TYPE, PLUGIN_TYPE, SERVER_TYPE,
+  SCHEMA_ID_EXTENSION_PROPERTY
 };
