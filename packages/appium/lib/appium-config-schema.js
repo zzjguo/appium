@@ -76,7 +76,7 @@ export default {
           title: 'base-path config',
           description:
             'Base path to use as the prefix for all webdriver routes running on the server',
-          default: '/',
+          default: '',
           appiumAliases: ['pa'],
         },
         'keep-alive-timeout': {

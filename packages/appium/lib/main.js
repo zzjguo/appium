@@ -323,3 +323,5 @@ if (require.main === module) {
 }
 
 export { main };
+
+export { APPIUM_HOME } from './extension-config';
