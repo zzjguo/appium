@@ -3,7 +3,7 @@ import ExtensionConfig, { DRIVER_TYPE } from './extension-config';
 import { registerSchema } from './schema';
 import path from 'path';
 
-const ALLOWED_SCHEMA_EXTNAMES = ['.json', '.js', '.cjs'];
+const ALLOWED_ARG_SCHEMA_EXTNAMES = ['.json', '.js', '.cjs'];
 
 export default class DriverConfig extends ExtensionConfig {
   constructor (appiumHome, logFn = null) {
@@ -13,7 +13,7 @@ export default class DriverConfig extends ExtensionConfig {
   getConfigProblems (driver) {
     const problems = [];
     const automationNames = [];
-    const {platformNames, automationName, schema, installSpec, pkgName} = driver;
+    const {platformNames, automationName, schema: argSchema, installSpec, pkgName} = driver;
 
     if (!_.isArray(platformNames)) {
       problems.push({
@@ -47,20 +47,20 @@ export default class DriverConfig extends ExtensionConfig {
     }
     automationNames.push(automationName);
 
-    if (!_.isUndefined(schema)) {
-      if (!_.isString(schema)) {
-        problems.push({err: 'Incorrectly formatted schema field.', val: schema});
+    if (!_.isUndefined(argSchema)) {
+      if (!_.isString(argSchema)) {
+        problems.push({err: 'Incorrectly formatted schema field.', val: argSchema});
       } else {
-        const schemaExtName = path.extname(schema);
+        const schemaExtName = path.extname(argSchema);
 
-        if (!_.includes(ALLOWED_SCHEMA_EXTNAMES, schemaExtName)) {
-          problems.push({err: `Schema file has unsupported extension. Allowed: ${ALLOWED_SCHEMA_EXTNAMES.join(', ')}`, val: schema});
+        if (!_.includes(ALLOWED_ARG_SCHEMA_EXTNAMES, schemaExtName)) {
+          problems.push({err: `Schema file has unsupported extension. Allowed: ${ALLOWED_ARG_SCHEMA_EXTNAMES.join(', ')}`, val: argSchema});
         } else {
-          const schemaPath = path.resolve(installSpec, schema);
+          const schemaPath = path.resolve(installSpec, argSchema);
           try {
             registerSchema(require(schemaPath), pkgName);
           } catch (err) {
-            problems.push({err: `Unable to register schema at ${schemaPath}`, val: schema});
+            problems.push({err: `Unable to register schema at ${schemaPath}`, val: argSchema});
           }
         }
       }
