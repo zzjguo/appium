@@ -34,7 +34,7 @@ export default class ExtensionConfig {
     }
     this.appiumHome = appiumHome;
     this.configFile = path.resolve(this.appiumHome, CONFIG_FILE_NAME);
-    this.installedExtensions = {};
+    this.installedExtensions = null;
     this.extensionType = extensionType;
     this.configKey = `${extensionType}s`;
     this.yamlData = {[`${DRIVER_TYPE}s`]: {}, [`${PLUGIN_TYPE}s`]: {}};
@@ -125,7 +125,7 @@ export default class ExtensionConfig {
    * @param {boolean} [force] - If true, force a re-read of the config file.
    */
   async read (force) {
-    if (this.installedExtensions && !force) {
+    if (!this.installedExtensions || force) {
       await mkdirp(this.appiumHome); // ensure appium home exists
       try {
         this.yamlData = YAML.parse(await fs.readFile(this.configFile, 'utf8'));

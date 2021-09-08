@@ -13,7 +13,7 @@ export default class DriverConfig extends ExtensionConfig {
   getConfigProblems (driver) {
     const problems = [];
     const automationNames = [];
-    const {platformNames, automationName, schema: argSchema, installSpec, pkgName} = driver;
+    const {platformNames, automationName, schema: argSchema, installPath, pkgName} = driver;
 
     if (!_.isArray(platformNames)) {
       problems.push({
@@ -56,7 +56,7 @@ export default class DriverConfig extends ExtensionConfig {
         if (!_.includes(ALLOWED_ARG_SCHEMA_EXTNAMES, schemaExtName)) {
           problems.push({err: `Schema file has unsupported extension. Allowed: ${ALLOWED_ARG_SCHEMA_EXTNAMES.join(', ')}`, val: argSchema});
         } else {
-          const schemaPath = path.resolve(installSpec, argSchema);
+          const schemaPath = path.resolve(this.appiumHome, installPath, 'node_modules', pkgName, argSchema);
           try {
             registerSchema(require(schemaPath), pkgName);
           } catch (err) {
